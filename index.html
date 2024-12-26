@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake Platformer</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f0f0f0;
+    }
+    canvas {
+      border: 2px solid black;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Game settings
+    const platformWidth = 100;
+    const platformHeight = 20;
+    const platformCount = 20;
+    const snake = {
+      x: 400,
+      y: 300,
+      width: 20,
+      height: 20,
+      dx: 0,
+      dy: 0,
+      speed: 5,
+      jumpPower: -12,
+      gravity: 0.5,
+      length: 150,
+      onGround: false,
+    };
+    const platforms = [];
+    let isGameOver = false;
+
+    // Generate platforms
+    function generatePlatforms() {
+      let previousPlatform = { x: canvas.width / 2, y: canvas.height - 50 };
+      platforms.push(previousPlatform);
+
+      for (let i = 1; i < platformCount; i++) {
+        const maxStep = snake.length;
+
+        const newPlatform = {
+          x: Math.random() * (canvas.width - platformWidth),
+          y: Math.max(
+            0,
+            previousPlatform.y - (Math.random() * maxStep)
+          ),
+        };
+
+        newPlatform.y = Math.max(newPlatform.y, platformHeight);
+        platforms.push(newPlatform);
+        previousPlatform = newPlatform;
+      }
+    }
+
+    // Handle input
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") {
+        snake.dx = -snake.speed;
+      } else if (e.key === "ArrowRight") {
+        snake.dx = snake.speed;
+      } else if (e.key === "ArrowUp" && snake.onGround) {
+        snake.dy = snake.jumpPower;
+        snake.onGround = false;
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        snake.dx = 0;
+      }
+    });
+
+    canvas.addEventListener("touchstart", (e) => {
+      touchStartX = e.changedTouches[0].clientX;
+    });
+
+    canvas.addEventListener("touchend", (e) => {
+      touchEndX = e.changedTouches[0].clientX;
+      const swipeDistance = touchEndX - touchStartX;
+
+      if (swipeDistance > 50) {
+        snake.dx = snake.speed;
+      } else if (swipeDistance < -50) {
+        snake.dx = -snake.speed;
+      }
+    });
+
+    // Check collision with platforms
+    function checkCollision() {
+      snake.onGround = false;
+      platforms.forEach((platform) => {
+        if (
+          snake.x + snake.width > platform.x &&
+          snake.x < platform.x + platformWidth &&
+          snake.y + snake.height >= platform.y &&
+          snake.y + snake.height <= platform.y + snake.dy
+        ) {
+          snake.dy = 0;
+          snake.y = platform.y - snake.height;
+          snake.onGround = true;
+        }
+      });
+
+      if (snake.y + snake.height >= canvas.height) {
+        isGameOver = true;
+      }
+    }
+
+    // Update the game
+    function update() {
+      if (isGameOver) return;
+
+      snake.dy += snake.gravity; // Apply gravity
+      snake.x += snake.dx; // Apply horizontal movement
+      snake.y += snake.dy; // Apply vertical movement
+
+      // Keep snake within bounds
+      if (snake.x < 0) snake.x = 0;
+      if (snake.x + snake.width > canvas.width) snake.x = canvas.width - snake.width;
+
+      checkCollision();
+    }
+
+    // Render the game
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw platforms
+      ctx.fillStyle = "blue";
+      platforms.forEach((platform) => {
+        ctx.fillRect(platform.x, platform.y, platformWidth, platformHeight);
+      });
+
+      // Draw snake
+      ctx.fillStyle = "green";
+      ctx.fillRect(snake.x, snake.y, snake.width, snake.height);
+
+      // Draw game over text
+      if (isGameOver) {
+        ctx.fillStyle = "red";
+        ctx.font = "30px Arial";
+        ctx.fillText("Game Over!", canvas.width / 2 - 80, canvas.height / 2);
+      }
+    }
+
+    // Game loop
+    function gameLoop() {
+      update();
+      render();
+      if (!isGameOver) {
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    // Initialize game
+    function init() {
+      generatePlatforms();
+      gameLoop();
+    }
+
+    init();
+  </script>
+</body>
+</html>
