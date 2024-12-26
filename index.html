@@ -16,8 +16,6 @@
     canvas {
       border: 2px solid black;
       position: fixed;
-      width: 100vw;   /* Make canvas fill the width of the viewport */
-    height: 100vh;  /* Make canvas fill the height of the viewport */
     }
   </style>
 </head>
@@ -69,7 +67,10 @@
         previousPlatform = newPlatform;
       }
     }
-
+function resizeCanvas() {
+    canvas.width = window.innerWidth;  // Adjust internal resolution
+    canvas.height = window.innerHeight;
+}
     // Handle input
     let touchStartX = 0;
     let touchEndX = 0;
@@ -129,6 +130,7 @@
 
     // Update the game
     function update() {
+      resizeCanvas()
       if (isGameOver) return;
 
       snake.dy += snake.gravity; // Apply gravity
