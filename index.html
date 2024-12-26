@@ -67,13 +67,17 @@
         previousPlatform = newPlatform;
       }
     }
-function resizeCanvas() {
-    canvas.width = window.innerWidth;  // Adjust internal resolution
-    canvas.height = window.innerHeight;
-}
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;  // Adjust internal resolution
+      canvas.height = window.innerHeight;
+    }
+
     // Handle input
     let touchStartX = 0;
     let touchEndX = 0;
+    let touchStartY = 0;
+    let touchEndY = 0;
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "ArrowLeft") {
@@ -92,18 +96,32 @@ function resizeCanvas() {
       }
     });
 
+    // Handle touch events for swiping
     canvas.addEventListener("touchstart", (e) => {
       touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
     });
 
     canvas.addEventListener("touchend", (e) => {
       touchEndX = e.changedTouches[0].clientX;
-      const swipeDistance = touchEndX - touchStartX;
+      touchEndY = e.changedTouches[0].clientY;
 
-      if (swipeDistance > 50) {
-        snake.dx = snake.speed;
-      } else if (swipeDistance < -50) {
-        snake.dx = -snake.speed;
+      const swipeDistanceX = touchEndX - touchStartX;
+      const swipeDistanceY = touchEndY - touchStartY;
+
+      // Swipe left or right for horizontal movement
+      if (Math.abs(swipeDistanceX) > 50) {
+        if (swipeDistanceX > 0) {
+          snake.dx = snake.speed;
+        } else {
+          snake.dx = -snake.speed;
+        }
+      }
+
+      // Swipe up for jumping
+      if (Math.abs(swipeDistanceY) > 50 && swipeDistanceY < 0 && snake.onGround) {
+        snake.dy = snake.jumpPower;
+        snake.onGround = false;
       }
     });
 
@@ -130,7 +148,7 @@ function resizeCanvas() {
 
     // Update the game
     function update() {
-      resizeCanvas()
+      resizeCanvas();
       if (isGameOver) return;
 
       snake.dy += snake.gravity; // Apply gravity
