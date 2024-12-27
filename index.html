@@ -95,7 +95,8 @@
       if (character.health >= 100) {
         character.health = 100; // Max out at 100%
       }
-      const knockbackScale = character.health / 100 * 20; // Knockback increases with damage
+      // Increase knockback based on health damage
+      const knockbackScale = character.health / 100 * 50; // Stronger knockback as damage increases
       character.knockback = knockbackScale;
     }
 
@@ -211,7 +212,8 @@
       // Attack on tap (Down swipe or tap)
       if (Math.abs(touch.pageY - swipeStart.y) < 50 && detectCollision()) {
         applyDamageTo(enemy, 10); // Deal 10 damage to the enemy on attack
-        enemy.x -= enemy.knockback; // Apply knockback based on enemy's health
+        // Apply stronger knockback to the enemy
+        enemy.x -= enemy.knockback * 1.5; // Increase knockback for stronger effect
       }
 
       swipeStart = null;
