@@ -39,38 +39,41 @@
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
 
+    // Spawn positions on the first platform
+    const spawnX = 100;
+    const spawnY = canvas.height - 150; // On the first platform
+
     let player = {
-      x: 50,
-      y: canvas.height - 100, // Starting at the bottom of the canvas
+      x: spawnX,
+      y: spawnY,
       width: 50,
       height: 50,
-      health: 0, // 0% health
+      health: 100,
       color: "blue",
-      velocityY: 0, // Vertical velocity for gravity
+      velocityY: 0,
       knockback: 0,
-      hitstun: 0, // Hitstun timer in milliseconds
-      onGround: false, // Check if player is on the ground
+      hitstun: 0,
+      onGround: true,
     };
 
     let enemy = {
-      x: canvas.width - 100,
-      y: canvas.height - 100, // Starting at the bottom of the canvas
+      x: canvas.width - 150,
+      y: spawnY,
       width: 50,
       height: 50,
-      health: 0, // 0% health
+      health: 100,
       color: "red",
-      velocityY: 0, // Vertical velocity for gravity
+      velocityY: 0,
       knockback: 0,
-      hitstun: 0, // Hitstun timer in milliseconds
-      onGround: false, // Check if enemy is on the ground
+      hitstun: 0,
+      onGround: true,
     };
 
     let swipeStart = null;
     let swipeEnd = null;
-    let swipeStartTime = 0; // Time when swipe starts
-    let lastHitTime = 0; // To track last time a hit occurred for both player and enemy
+    let swipeStartTime = 0;
+    let lastHitTime = 0;
 
-    // Platforms array
     let platforms = [
       { x: 100, y: canvas.height - 150, width: 200, height: 20, color: "green" },
       { x: 400, y: canvas.height - 250, width: 200, height: 20, color: "green" },
@@ -84,11 +87,10 @@
 
     function drawHealthBar(x, y, health, color) {
       ctx.fillStyle = color;
-      ctx.fillRect(x, y - 10, health * 0.5, 5); // Display health bar based on health percentage
+      ctx.fillRect(x, y - 10, health * 0.5, 5);
     }
 
     function updateHealthDisplay() {
-      // Drawing health percentages inside the canvas
       ctx.fillStyle = "black";
       ctx.font = "20px Arial";
       ctx.fillText(`Player: ${player.health}%`, player.x, player.y - 20);
@@ -99,7 +101,6 @@
       const speed = 10;
       const swipeDuration = Date.now() - swipeStartTime;
 
-      // Ensure swipe is held for at least 100ms
       if (swipeDuration >= 100) {
         if (swipeDirection === "left") {
           player.x -= speed;
@@ -108,7 +109,6 @@
         }
       }
 
-      // Boundaries check
       if (player.x < 0 || player.x + player.width > canvas.width || player.y < 0 || player.y + player.height > canvas.height) {
         player.health = 100; // Player dies if out of bounds
       }
@@ -119,11 +119,11 @@
     }
 
     function applyDamageTo(character, damage) {
-      character.health += damage;
-      if (character.health > 100) {
-        character.health = 100;
+      character.health -= damage;
+      if (character.health <= 0) {
+        character.health = 0;
       }
-      const knockbackScale = (character.health / 100) * 20; // Increased knockback scaling
+      const knockbackScale = (character.health / 100) * 20;
       character.knockback = knockbackScale;
     }
 
@@ -141,52 +141,45 @@
 
     function applyHitstun(character) {
       if (character.hitstun > 0) {
-        character.hitstun -= 10; // Reduce hitstun by 10 milliseconds
-        return true; // If character is still in hitstun, don't allow another hit
+        character.hitstun -= 10;
+        return true;
       }
       return false;
     }
 
     function handleTap(event) {
-      if (Date.now() - lastHitTime < 10) return; // Prevent multiple hits in quick succession
+      if (Date.now() - lastHitTime < 10) return;
 
       lastHitTime = Date.now();
-      // Tap coordinates
       const tapX = event.clientX;
       const tapY = event.clientY;
 
-      // Check if the player tapped the enemy and there's a collision
       if (tapX >= enemy.x && tapX <= enemy.x + enemy.width && tapY >= enemy.y && tapY <= enemy.y + enemy.height) {
         if (!applyHitstun(enemy)) {
-          // Apply damage and knockback to the enemy
           applyDamageTo(enemy, 10);
-          enemy.x -= enemy.knockback; // Apply knockback
-          enemy.hitstun = 100; // Set enemy hitstun
+          enemy.x -= enemy.knockback;
+          enemy.hitstun = 100;
         }
       }
 
-      // Check if the enemy tapped the player and there's a collision
       if (tapX >= player.x && tapX <= player.x + player.width && tapY >= player.y && tapY <= player.y + player.height) {
         if (!applyHitstun(player)) {
-          // Apply damage and knockback to the player
           applyDamageTo(player, 10);
-          player.x -= player.knockback; // Apply knockback
-          player.hitstun = 100; // Set player hitstun
+          player.x -= player.knockback;
+          player.hitstun = 100;
         }
       }
     }
 
     function checkPlatformCollision(character) {
-      character.onGround = false; // Reset on ground state
+      character.onGround = false;
 
-      // Check if the character is on any platform
       for (let platform of platforms) {
         if (character.x + character.width > platform.x && character.x < platform.x + platform.width &&
             character.y + character.height <= platform.y && character.y + character.height + character.velocityY >= platform.y) {
-          // Collision detected, set character on ground
           character.onGround = true;
-          character.velocityY = 0; // Stop falling
-          character.y = platform.y - character.height; // Place character on top of the platform
+          character.velocityY = 0;
+          character.y = platform.y - character.height;
         }
       }
     }
@@ -203,13 +196,24 @@
       }
     }
 
+    function respawn(character, spawnX, spawnY) {
+      if (character.y > canvas.height) { // If the character falls off the screen
+        character.x = spawnX; // Respawn at initial spawn point
+        character.y = spawnY;
+        character.health = 100; // Reset health to 100
+      }
+    }
+
     function update() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Apply gravity and check for platform collisions
       applyGravity();
       checkPlatformCollision(player);
       checkPlatformCollision(enemy);
+
+      // Respawn if they fall off the screen
+      respawn(player, spawnX, spawnY);
+      respawn(enemy, canvas.width - 150, spawnY);
 
       // Draw platforms
       for (let platform of platforms) {
@@ -224,13 +228,12 @@
       drawHealthBar(player.x, player.y, player.health, player.color);
       drawHealthBar(enemy.x, enemy.y, enemy.health, enemy.color);
 
-      // Update health display
       updateHealthDisplay();
     }
 
     function touchStart(event) {
       swipeStart = { x: event.touches[0].pageX, y: event.touches[0].pageY };
-      swipeStartTime = Date.now(); // Record the start time of the swipe
+      swipeStartTime = Date.now();
     }
 
     function touchEnd(event) {
@@ -248,14 +251,14 @@
 
     canvas.addEventListener("touchstart", touchStart);
     canvas.addEventListener("touchend", touchEnd);
-    canvas.addEventListener("mousedown", handleTap); // Mouse click also works for testing
+    canvas.addEventListener("mousedown", handleTap);
 
     function gameLoop() {
       update();
       requestAnimationFrame(gameLoop);
     }
 
-    gameLoop(); // Start the game loop
+    gameLoop();
   </script>
 </body>
 </html>
