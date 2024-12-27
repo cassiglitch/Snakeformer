@@ -19,7 +19,6 @@
     canvas {
       border: 2px solid black;
       background-color: #fff;
-      position: fixed;
     }
   </style>
 </head>
@@ -48,6 +47,7 @@
       health: 0, // 0% health
       color: "blue",
       knockback: 0,
+      hitstun: 0, // Hitstun timer in milliseconds
     };
 
     let enemy = {
@@ -58,10 +58,12 @@
       health: 0, // 0% health
       color: "red",
       knockback: 0,
+      hitstun: 0, // Hitstun timer in milliseconds
     };
 
     let swipeStart = null;
     let swipeEnd = null;
+    let lastHitTime = 0; // To track last time a hit occurred for both player and enemy
 
     function drawRect(x, y, width, height, color) {
       ctx.fillStyle = color;
@@ -103,6 +105,15 @@
       }
     }
 
+    function applyDamageTo(character, damage) {
+      character.health += damage;
+      if (character.health > 100) {
+        character.health = 100;
+      }
+      const knockbackScale = (character.health / 100) * 20; // Increased knockback scaling
+      character.knockback = knockbackScale;
+    }
+
     function detectCollision() {
       const playerRight = player.x + player.width;
       const playerBottom = player.y + player.height;
@@ -115,13 +126,41 @@
       return false;
     }
 
-    function applyDamageTo(character, damage) {
-      character.health += damage;
-      if (character.health > 100) {
-        character.health = 100;
+    function applyHitstun(character) {
+      if (character.hitstun > 0) {
+        character.hitstun -= 10; // Reduce hitstun by 10 milliseconds
+        return true; // If character is still in hitstun, don't allow another hit
       }
-      const knockbackScale = (character.health / 100) * 10;
-      character.knockback = knockbackScale;
+      return false;
+    }
+
+    function handleTap(event) {
+      if (Date.now() - lastHitTime < 10) return; // Prevent multiple hits in quick succession
+
+      lastHitTime = Date.now();
+      // Tap coordinates
+      const tapX = event.clientX;
+      const tapY = event.clientY;
+
+      // Check if the player tapped the enemy
+      if (tapX >= enemy.x && tapX <= enemy.x + enemy.width && tapY >= enemy.y && tapY <= enemy.y + enemy.height) {
+        if (!applyHitstun(enemy)) {
+          // Apply damage and knockback to the enemy
+          applyDamageTo(enemy, 10);
+          enemy.x -= enemy.knockback; // Apply knockback
+          enemy.hitstun = 100; // Set enemy hitstun
+        }
+      }
+
+      // Check if the enemy tapped the player
+      if (tapX >= player.x && tapX <= player.x + player.width && tapY >= player.y && tapY <= player.y + player.height) {
+        if (!applyHitstun(player)) {
+          // Apply damage and knockback to the player
+          applyDamageTo(player, 10);
+          player.x -= player.knockback; // Apply knockback
+          player.hitstun = 100; // Set player hitstun
+        }
+      }
     }
 
     function update() {
@@ -138,11 +177,11 @@
       // Update health display
       updateHealthDisplay();
 
-      // Collision check
-      if (detectCollision()) {
-        applyDamageTo(player, 10);
-        applyDamageTo(enemy, 10);
-      }
+      // Collision check (not necessary for tap-based attacks anymore)
+      // if (detectCollision()) {
+      //   applyDamageTo(player, 10);
+      //   applyDamageTo(enemy, 10);
+      // }
     }
 
     function touchStart(event) {
@@ -173,6 +212,7 @@
 
     canvas.addEventListener("touchstart", touchStart);
     canvas.addEventListener("touchend", touchEnd);
+    canvas.addEventListener("click", handleTap); // Tap event to attack
 
     setInterval(update, 30); // Game loop
   </script>
