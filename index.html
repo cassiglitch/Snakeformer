@@ -19,28 +19,26 @@
     canvas {
       border: 2px solid black;
       background-color: #fff;
-    }
-
-    #gameInfo {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      font-family: Arial, sans-serif;
-      font-size: 20px;
-      color: #000;
+      position: fixed;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="500" height="500"></canvas>
-  <div id="gameInfo">
-    <div>Player Health: <span id="playerHealth">0%</span></div>
-    <div>Enemy Health: <span id="enemyHealth">0%</span></div>
-  </div>
+  <canvas id="gameCanvas"></canvas>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      // Set canvas size to window size
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    // Resize canvas initially
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
 
     let player = {
       x: 50,
@@ -53,7 +51,7 @@
     };
 
     let enemy = {
-      x: 400,
+      x: canvas.width - 100,
       y: 250,
       width: 50,
       height: 50,
@@ -70,9 +68,17 @@
       ctx.fillRect(x, y, width, height);
     }
 
+    function drawHealthBar(x, y, health, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y - 10, health * 0.5, 5); // Display health bar based on health percentage
+    }
+
     function updateHealthDisplay() {
-      document.getElementById("playerHealth").textContent = player.health + "%";
-      document.getElementById("enemyHealth").textContent = enemy.health + "%";
+      // Drawing health percentages inside the canvas
+      ctx.fillStyle = "black";
+      ctx.font = "20px Arial";
+      ctx.fillText(`Player: ${player.health}%`, player.x, player.y - 20);
+      ctx.fillText(`Enemy: ${enemy.health}%`, enemy.x, enemy.y - 20);
     }
 
     function handleSwipe(swipeDirection) {
@@ -125,14 +131,18 @@
       drawRect(player.x, player.y, player.width, player.height, player.color);
       drawRect(enemy.x, enemy.y, enemy.width, enemy.height, enemy.color);
 
+      // Draw health bars
+      drawHealthBar(player.x, player.y, player.health, player.color);
+      drawHealthBar(enemy.x, enemy.y, enemy.health, enemy.color);
+
+      // Update health display
+      updateHealthDisplay();
+
       // Collision check
       if (detectCollision()) {
         applyDamageTo(player, 10);
         applyDamageTo(enemy, 10);
       }
-
-      // Update health display
-      updateHealthDisplay();
     }
 
     function touchStart(event) {
