@@ -39,33 +39,30 @@
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
 
-    // Spawn positions on the first platform
-    const spawnX = 100;
-    const spawnY = 0; // On the first platform
+    const floorY = canvas.height - 50; // Floor at the bottom of the canvas
 
+    // Initial spawn positions
     let player = {
-      x: spawnX,
-      y: spawnY,
+      x: 100,
+      y: floorY - 50, // Start on the floor
       width: 50,
       height: 50,
-      health: 100,
+      health: 0, // Start at 0% health
       color: "blue",
       velocityY: 0,
       knockback: 0,
-      hitstun: 0,
       onGround: true,
     };
 
     let enemy = {
       x: canvas.width - 150,
-      y: spawnY,
+      y: floorY - 50, // Start on the floor
       width: 50,
       height: 50,
-      health: 100,
+      health: 0, // Start at 0% health
       color: "red",
       velocityY: 0,
       knockback: 0,
-      hitstun: 0,
       onGround: true,
     };
 
@@ -73,12 +70,6 @@
     let swipeEnd = null;
     let swipeStartTime = 0;
     let lastHitTime = 0;
-
-    let platforms = [
-      { x: 100, y: canvas.height - 150, width: 200, height: 20, color: "green" },
-      { x: 400, y: canvas.height - 250, width: 200, height: 20, color: "green" },
-      { x: 700, y: canvas.height - 350, width: 200, height: 20, color: "green" }
-    ];
 
     function drawRect(x, y, width, height, color) {
       ctx.fillStyle = color;
@@ -97,33 +88,12 @@
       ctx.fillText(`Enemy: ${enemy.health}%`, enemy.x, enemy.y - 20);
     }
 
-    function handleSwipe(swipeDirection) {
-      const speed = 10;
-      const swipeDuration = Date.now() - swipeStartTime;
-
-      if (swipeDuration >= 100) {
-        if (swipeDirection === "left") {
-          player.x -= speed;
-        } else if (swipeDirection === "right") {
-          player.x += speed;
-        }
-      }
-
-      if (player.x < 0 || player.x + player.width > canvas.width || player.y < 0 || player.y + player.height > canvas.height) {
-        player.health = 100; // Player dies if out of bounds
-      }
-
-      if (enemy.x < 0 || enemy.x + enemy.width > canvas.width || enemy.y < 0 || enemy.y + enemy.height > canvas.height) {
-        enemy.health = 100; // Enemy dies if out of bounds
-      }
-    }
-
     function applyDamageTo(character, damage) {
-      character.health -= damage;
-      if (character.health <= 0) {
-        character.health = 0;
+      character.health += damage;
+      if (character.health >= 100) {
+        character.health = 100; // Max out at 100%
       }
-      const knockbackScale = (character.health / 100) * 20;
+      const knockbackScale = character.health / 100 * 20; // Knockback increases with damage
       character.knockback = knockbackScale;
     }
 
@@ -139,51 +109,6 @@
       return false;
     }
 
-    function applyHitstun(character) {
-      if (character.hitstun > 0) {
-        character.hitstun -= 10;
-        return true;
-      }
-      return false;
-    }
-
-    function handleTap(event) {
-      if (Date.now() - lastHitTime < 10) return;
-
-      lastHitTime = Date.now();
-      const tapX = event.clientX;
-      const tapY = event.clientY;
-
-      if (tapX >= enemy.x && tapX <= enemy.x + enemy.width && tapY >= enemy.y && tapY <= enemy.y + enemy.height) {
-        if (!applyHitstun(enemy)) {
-          applyDamageTo(enemy, 10);
-          enemy.x -= enemy.knockback;
-          enemy.hitstun = 100;
-        }
-      }
-
-      if (tapX >= player.x && tapX <= player.x + player.width && tapY >= player.y && tapY <= player.y + player.height) {
-        if (!applyHitstun(player)) {
-          applyDamageTo(player, 10);
-          player.x -= player.knockback;
-          player.hitstun = 100;
-        }
-      }
-    }
-
-    function checkPlatformCollision(character) {
-      character.onGround = false;
-
-      for (let platform of platforms) {
-        if (character.x + character.width > platform.x && character.x < platform.x + platform.width &&
-            character.y + character.height <= platform.y && character.y + character.height + character.velocityY >= platform.y) {
-          character.onGround = true;
-          character.velocityY = 0;
-          character.y = platform.y - character.height;
-        }
-      }
-    }
-
     function applyGravity() {
       const gravity = 0.5;
       if (!player.onGround) {
@@ -196,11 +121,54 @@
       }
     }
 
+    function checkFloorCollision(character) {
+      character.onGround = false;
+
+      // Check if the character is on the floor
+      if (character.y + character.height >= floorY) {
+        character.onGround = true;
+        character.velocityY = 0;
+        character.y = floorY - character.height;
+      }
+    }
+
     function respawn(character, spawnX, spawnY) {
       if (character.y > canvas.height) { // If the character falls off the screen
         character.x = spawnX; // Respawn at initial spawn point
         character.y = spawnY;
-        character.health = 100; // Reset health to 100
+        character.health = 0; // Reset health to 0%
+      }
+    }
+
+    function handleKeyPress(event) {
+      const speed = 10;
+
+      // Move left and right
+      if (event.key === "ArrowLeft") {
+        player.x -= speed;
+      } else if (event.key === "ArrowRight") {
+        player.x += speed;
+      }
+
+      // Jump (Up arrow)
+      if (event.key === "ArrowUp" && player.onGround) {
+        player.velocityY = -15; // Jump height
+      }
+
+      // Attack (Down arrow)
+      if (event.key === "ArrowDown") {
+        if (detectCollision()) {
+          applyDamageTo(enemy, 10); // Deal 10 damage to the enemy on attack
+          enemy.x -= enemy.knockback; // Apply knockback based on enemy's health
+        }
+      }
+
+      // Prevent player from going out of bounds
+      if (player.x < 0) {
+        player.x = 0;
+      }
+      if (player.x + player.width > canvas.width) {
+        player.x = canvas.width - player.width;
       }
     }
 
@@ -208,17 +176,16 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       applyGravity();
-      checkPlatformCollision(player);
-      checkPlatformCollision(enemy);
+      checkFloorCollision(player);
+      checkFloorCollision(enemy);
 
       // Respawn if they fall off the screen
-      respawn(player, spawnX, spawnY);
-      respawn(enemy, canvas.width - 150, spawnY);
+      respawn(player, 100, floorY - 50);
+      respawn(enemy, canvas.width - 150, floorY - 50);
 
-      // Draw platforms
-      for (let platform of platforms) {
-        drawRect(platform.x, platform.y, platform.width, platform.height, platform.color);
-      }
+      // Draw floor
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, floorY, canvas.width, canvas.height - floorY);
 
       // Draw player and enemy
       drawRect(player.x, player.y, player.width, player.height, player.color);
@@ -231,27 +198,8 @@
       updateHealthDisplay();
     }
 
-    function touchStart(event) {
-      swipeStart = { x: event.touches[0].pageX, y: event.touches[0].pageY };
-      swipeStartTime = Date.now();
-    }
-
-    function touchEnd(event) {
-      swipeEnd = { x: event.changedTouches[0].pageX, y: event.changedTouches[0].pageY };
-      let dx = swipeEnd.x - swipeStart.x;
-      let dy = swipeEnd.y - swipeStart.y;
-      let swipeDirection = null;
-
-      if (Math.abs(dx) > Math.abs(dy)) {
-        swipeDirection = dx < 0 ? "left" : "right";
-      }
-
-      handleSwipe(swipeDirection);
-    }
-
-    canvas.addEventListener("touchstart", touchStart);
-    canvas.addEventListener("touchend", touchEnd);
-    canvas.addEventListener("mousedown", handleTap);
+    // Handle key press events
+    window.addEventListener("keydown", handleKeyPress);
 
     function gameLoop() {
       update();
