@@ -41,30 +41,41 @@
 
     let player = {
       x: 50,
-      y: 250,
+      y: canvas.height - 100, // Starting at the bottom of the canvas
       width: 50,
       height: 50,
       health: 0, // 0% health
       color: "blue",
+      velocityY: 0, // Vertical velocity for gravity
       knockback: 0,
       hitstun: 0, // Hitstun timer in milliseconds
+      onGround: false, // Check if player is on the ground
     };
 
     let enemy = {
       x: canvas.width - 100,
-      y: 250,
+      y: canvas.height - 100, // Starting at the bottom of the canvas
       width: 50,
       height: 50,
       health: 0, // 0% health
       color: "red",
+      velocityY: 0, // Vertical velocity for gravity
       knockback: 0,
       hitstun: 0, // Hitstun timer in milliseconds
+      onGround: false, // Check if enemy is on the ground
     };
 
     let swipeStart = null;
     let swipeEnd = null;
     let swipeStartTime = 0; // Time when swipe starts
     let lastHitTime = 0; // To track last time a hit occurred for both player and enemy
+
+    // Platforms array
+    let platforms = [
+      { x: 100, y: canvas.height - 150, width: 200, height: 20, color: "green" },
+      { x: 400, y: canvas.height - 250, width: 200, height: 20, color: "green" },
+      { x: 700, y: canvas.height - 350, width: 200, height: 20, color: "green" }
+    ];
 
     function drawRect(x, y, width, height, color) {
       ctx.fillStyle = color;
@@ -94,13 +105,10 @@
           player.x -= speed;
         } else if (swipeDirection === "right") {
           player.x += speed;
-        } else if (swipeDirection === "up") {
-          player.y -= speed;
-        } else if (swipeDirection === "down") {
-          player.y += speed;
         }
       }
 
+      // Boundaries check
       if (player.x < 0 || player.x + player.width > canvas.width || player.y < 0 || player.y + player.height > canvas.height) {
         player.health = 100; // Player dies if out of bounds
       }
@@ -168,8 +176,45 @@
       }
     }
 
+    function checkPlatformCollision(character) {
+      character.onGround = false; // Reset on ground state
+
+      // Check if the character is on any platform
+      for (let platform of platforms) {
+        if (character.x + character.width > platform.x && character.x < platform.x + platform.width &&
+            character.y + character.height <= platform.y && character.y + character.height + character.velocityY >= platform.y) {
+          // Collision detected, set character on ground
+          character.onGround = true;
+          character.velocityY = 0; // Stop falling
+          character.y = platform.y - character.height; // Place character on top of the platform
+        }
+      }
+    }
+
+    function applyGravity() {
+      const gravity = 0.5;
+      if (!player.onGround) {
+        player.velocityY += gravity;
+        player.y += player.velocityY;
+      }
+      if (!enemy.onGround) {
+        enemy.velocityY += gravity;
+        enemy.y += enemy.velocityY;
+      }
+    }
+
     function update() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Apply gravity and check for platform collisions
+      applyGravity();
+      checkPlatformCollision(player);
+      checkPlatformCollision(enemy);
+
+      // Draw platforms
+      for (let platform of platforms) {
+        drawRect(platform.x, platform.y, platform.width, platform.height, platform.color);
+      }
 
       // Draw player and enemy
       drawRect(player.x, player.y, player.width, player.height, player.color);
@@ -181,12 +226,6 @@
 
       // Update health display
       updateHealthDisplay();
-
-      // Collision check (not necessary for tap-based attacks anymore)
-      // if (detectCollision()) {
-      //   applyDamageTo(player, 10);
-      //   applyDamageTo(enemy, 10);
-      // }
     }
 
     function touchStart(event) {
@@ -196,31 +235,27 @@
 
     function touchEnd(event) {
       swipeEnd = { x: event.changedTouches[0].pageX, y: event.changedTouches[0].pageY };
-      if (swipeStart && swipeEnd) {
-        const deltaX = swipeEnd.x - swipeStart.x;
-        const deltaY = swipeEnd.y - swipeStart.y;
+      let dx = swipeEnd.x - swipeStart.x;
+      let dy = swipeEnd.y - swipeStart.y;
+      let swipeDirection = null;
 
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-          if (deltaX > 0) {
-            handleSwipe("right");
-          } else {
-            handleSwipe("left");
-          }
-        } else {
-          if (deltaY > 0) {
-            handleSwipe("down");
-          } else {
-            handleSwipe("up");
-          }
-        }
+      if (Math.abs(dx) > Math.abs(dy)) {
+        swipeDirection = dx < 0 ? "left" : "right";
       }
+
+      handleSwipe(swipeDirection);
     }
 
     canvas.addEventListener("touchstart", touchStart);
     canvas.addEventListener("touchend", touchEnd);
-    canvas.addEventListener("click", handleTap); // Tap event to attack
+    canvas.addEventListener("mousedown", handleTap); // Mouse click also works for testing
 
-    setInterval(update, 30); // Game loop
+    function gameLoop() {
+      update();
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop(); // Start the game loop
   </script>
 </body>
 </html>
