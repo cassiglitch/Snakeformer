@@ -52,6 +52,7 @@
       velocityY: 0,
       knockback: 0,
       onGround: true,
+      speed: 10
     };
 
     let enemy = {
@@ -64,6 +65,7 @@
       velocityY: 0,
       knockback: 0,
       onGround: true,
+      speed: 10
     };
 
     let swipeStart = null;
@@ -141,7 +143,7 @@
     }
 
     function handleKeyPress(event) {
-      const speed = 30;
+      const speed = 10;
 
       // Move left and right
       if (event.key === "ArrowLeft") {
@@ -172,6 +174,49 @@
       }
     }
 
+    function handleSwipe(event) {
+      const swipeThreshold = 50;
+      const currentTime = new Date().getTime();
+
+      if (event.touches.length === 1) {
+        const touch = event.touches[0];
+        const deltaX = touch.pageX - swipeStart.x;
+        const deltaY = touch.pageY - swipeStart.y;
+
+        if (currentTime - swipeStartTime > 100) {
+          // Left swipe
+          if (deltaX < -swipeThreshold) {
+            player.x -= player.speed;
+          }
+          // Right swipe
+          else if (deltaX > swipeThreshold) {
+            player.x += player.speed;
+          }
+          // Jump swipe (Up)
+          else if (deltaY < -swipeThreshold && player.onGround) {
+            player.velocityY = -15; // Jump height
+          }
+        }
+      }
+    }
+
+    function handleTouchStart(event) {
+      swipeStart = { x: event.touches[0].pageX, y: event.touches[0].pageY };
+      swipeStartTime = new Date().getTime();
+    }
+
+    function handleTouchEnd(event) {
+      const touch = event.changedTouches[0];
+
+      // Attack on tap (Down swipe or tap)
+      if (Math.abs(touch.pageY - swipeStart.y) < 50 && detectCollision()) {
+        applyDamageTo(enemy, 10); // Deal 10 damage to the enemy on attack
+        enemy.x -= enemy.knockback; // Apply knockback based on enemy's health
+      }
+
+      swipeStart = null;
+    }
+
     function update() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -200,6 +245,11 @@
 
     // Handle key press events
     window.addEventListener("keydown", handleKeyPress);
+
+    // Handle touch events for swipe controls
+    window.addEventListener("touchstart", handleTouchStart);
+    window.addEventListener("touchmove", handleSwipe);
+    window.addEventListener("touchend", handleTouchEnd);
 
     function gameLoop() {
       update();
