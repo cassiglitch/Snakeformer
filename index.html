@@ -3,203 +3,168 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Snake Platformer</title>
+  <title>Swipe Battle Game</title>
   <style>
     body {
       margin: 0;
+      padding: 0;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
       background-color: #f0f0f0;
+      overflow: hidden;
     }
+
     canvas {
       border: 2px solid black;
-      position: fixed;
+      background-color: #fff;
+    }
+
+    #gameInfo {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-family: Arial, sans-serif;
+      font-size: 20px;
+      color: #000;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
+  <canvas id="gameCanvas" width="500" height="500"></canvas>
+  <div id="gameInfo">
+    <div>Player Health: <span id="playerHealth">0%</span></div>
+    <div>Enemy Health: <span id="enemyHealth">0%</span></div>
+  </div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    // Game settings
-    const platformWidth = 100;
-    const platformHeight = 20;
-    const platformCount = 20;
-    const snake = {
-      x: 30,
-      y: 400,
-      width: 20,
-      height: 20,
-      dx: 0,
-      dy: 0,
-      speed: 5,
-      jumpPower: -12,
-      gravity: 0.5,
-      length: 150,
-      onGround: false,
+    let player = {
+      x: 50,
+      y: 250,
+      width: 50,
+      height: 50,
+      health: 0, // 0% health
+      color: "blue",
+      knockback: 0,
     };
-    const platforms = [];
-    let isGameOver = false;
 
-    // Generate platforms
-    function generatePlatforms() {
-      let previousPlatform = { x: canvas.width / 2, y: canvas.height - 50 };
-      platforms.push(previousPlatform);
+    let enemy = {
+      x: 400,
+      y: 250,
+      width: 50,
+      height: 50,
+      health: 0, // 0% health
+      color: "red",
+      knockback: 0,
+    };
 
-      for (let i = 1; i < platformCount; i++) {
-        const maxStep = snake.length;
+    let swipeStart = null;
+    let swipeEnd = null;
 
-        const newPlatform = {
-          x: Math.random() * (canvas.width - platformWidth),
-          y: Math.max(
-            0,
-            previousPlatform.y - (Math.random() * maxStep)
-          ),
-        };
+    function drawRect(x, y, width, height, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, width, height);
+    }
 
-        newPlatform.y = Math.max(newPlatform.y, platformHeight);
-        platforms.push(newPlatform);
-        previousPlatform = newPlatform;
+    function updateHealthDisplay() {
+      document.getElementById("playerHealth").textContent = player.health + "%";
+      document.getElementById("enemyHealth").textContent = enemy.health + "%";
+    }
+
+    function handleSwipe(swipeDirection) {
+      const speed = 10;
+
+      if (swipeDirection === "left") {
+        player.x -= speed;
+      } else if (swipeDirection === "right") {
+        player.x += speed;
+      } else if (swipeDirection === "up") {
+        player.y -= speed;
+      } else if (swipeDirection === "down") {
+        player.y += speed;
+      }
+
+      if (player.x < 0 || player.x + player.width > canvas.width || player.y < 0 || player.y + player.height > canvas.height) {
+        player.health = 100; // Player dies if out of bounds
+      }
+
+      if (enemy.x < 0 || enemy.x + enemy.width > canvas.width || enemy.y < 0 || enemy.y + enemy.height > canvas.height) {
+        enemy.health = 100; // Enemy dies if out of bounds
       }
     }
 
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;  // Adjust internal resolution
-      canvas.height = window.innerHeight;
+    function detectCollision() {
+      const playerRight = player.x + player.width;
+      const playerBottom = player.y + player.height;
+      const enemyRight = enemy.x + enemy.width;
+      const enemyBottom = enemy.y + enemy.height;
+
+      if (playerRight > enemy.x && player.x < enemyRight && playerBottom > enemy.y && player.y < enemyBottom) {
+        return true;
+      }
+      return false;
     }
 
-    // Handle input
-    let touchStartX = 0;
-    let touchEndX = 0;
-    let touchStartY = 0;
-    let touchEndY = 0;
-
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowLeft") {
-        snake.dx = -snake.speed;
-      } else if (e.key === "ArrowRight") {
-        snake.dx = snake.speed;
-      } else if (e.key === "ArrowUp" && snake.onGround) {
-        snake.dy = snake.jumpPower;
-        snake.onGround = false;
+    function applyDamageTo(character, damage) {
+      character.health += damage;
+      if (character.health > 100) {
+        character.health = 100;
       }
-    });
-
-    document.addEventListener("keyup", (e) => {
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        snake.dx = 0;
-      }
-    });
-
-    // Handle touch events for swiping
-    canvas.addEventListener("touchstart", (e) => {
-      touchStartX = e.changedTouches[0].clientX;
-      touchStartY = e.changedTouches[0].clientY;
-    });
-
-    canvas.addEventListener("touchend", (e) => {
-      touchEndX = e.changedTouches[0].clientX;
-      touchEndY = e.changedTouches[0].clientY;
-
-      const swipeDistanceX = touchEndX - touchStartX;
-      const swipeDistanceY = touchEndY - touchStartY;
-
-      // Swipe left or right for horizontal movement
-      if (Math.abs(swipeDistanceX) > 50) {
-        if (swipeDistanceX > 0) {
-          snake.dx = snake.speed;
-        } else {
-          snake.dx = -snake.speed;
-        }
-      }
-
-      // Swipe up for jumping
-      if (Math.abs(swipeDistanceY) > 50 && swipeDistanceY < 0 && snake.onGround) {
-        snake.dy = snake.jumpPower;
-        snake.onGround = false;
-      }
-    });
-
-    // Check collision with platforms
-    function checkCollision() {
-      snake.onGround = false;
-      platforms.forEach((platform) => {
-        if (
-          snake.x + snake.width > platform.x &&
-          snake.x < platform.x + platformWidth &&
-          snake.y + snake.height >= platform.y &&
-          snake.y + snake.height <= platform.y + snake.dy
-        ) {
-          snake.dy = 0;
-          snake.y = platform.y - snake.height;
-          snake.onGround = true;
-        }
-      });
-
-      if (snake.y + snake.height >= canvas.height) {
-        isGameOver = true;
-      }
+      const knockbackScale = (character.health / 100) * 10;
+      character.knockback = knockbackScale;
     }
 
-    // Update the game
     function update() {
-      resizeCanvas();
-      if (isGameOver) return;
-
-      snake.dy += snake.gravity; // Apply gravity
-      snake.x += snake.dx; // Apply horizontal movement
-      snake.y += snake.dy; // Apply vertical movement
-
-      // Keep snake within bounds
-      if (snake.x < 0) snake.x = 0;
-      if (snake.x + snake.width > canvas.width) snake.x = canvas.width - snake.width;
-
-      checkCollision();
-    }
-
-    // Render the game
-    function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw platforms
-      ctx.fillStyle = "blue";
-      platforms.forEach((platform) => {
-        ctx.fillRect(platform.x, platform.y, platformWidth, platformHeight);
-      });
+      // Draw player and enemy
+      drawRect(player.x, player.y, player.width, player.height, player.color);
+      drawRect(enemy.x, enemy.y, enemy.width, enemy.height, enemy.color);
 
-      // Draw snake
-      ctx.fillStyle = "green";
-      ctx.fillRect(snake.x, snake.y, snake.width, snake.height);
+      // Collision check
+      if (detectCollision()) {
+        applyDamageTo(player, 10);
+        applyDamageTo(enemy, 10);
+      }
 
-      // Draw game over text
-      if (isGameOver) {
-        ctx.fillStyle = "red";
-        ctx.font = "30px Arial";
-        ctx.fillText("Game Over!", canvas.width / 2 - 80, canvas.height / 2);
+      // Update health display
+      updateHealthDisplay();
+    }
+
+    function touchStart(event) {
+      swipeStart = { x: event.touches[0].pageX, y: event.touches[0].pageY };
+    }
+
+    function touchEnd(event) {
+      swipeEnd = { x: event.changedTouches[0].pageX, y: event.changedTouches[0].pageY };
+      if (swipeStart && swipeEnd) {
+        const deltaX = swipeEnd.x - swipeStart.x;
+        const deltaY = swipeEnd.y - swipeStart.y;
+
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          if (deltaX > 0) {
+            handleSwipe("right");
+          } else {
+            handleSwipe("left");
+          }
+        } else {
+          if (deltaY > 0) {
+            handleSwipe("down");
+          } else {
+            handleSwipe("up");
+          }
+        }
       }
     }
 
-    // Game loop
-    function gameLoop() {
-      update();
-      render();
-      if (!isGameOver) {
-        requestAnimationFrame(gameLoop);
-      }
-    }
+    canvas.addEventListener("touchstart", touchStart);
+    canvas.addEventListener("touchend", touchEnd);
 
-    // Initialize game
-    function init() {
-      generatePlatforms();
-      gameLoop();
-    }
-
-    init();
+    setInterval(update, 30); // Game loop
   </script>
 </body>
 </html>
