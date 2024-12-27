@@ -63,6 +63,7 @@
 
     let swipeStart = null;
     let swipeEnd = null;
+    let swipeStartTime = 0; // Time when swipe starts
     let lastHitTime = 0; // To track last time a hit occurred for both player and enemy
 
     function drawRect(x, y, width, height, color) {
@@ -85,15 +86,19 @@
 
     function handleSwipe(swipeDirection) {
       const speed = 10;
+      const swipeDuration = Date.now() - swipeStartTime;
 
-      if (swipeDirection === "left") {
-        player.x -= speed;
-      } else if (swipeDirection === "right") {
-        player.x += speed;
-      } else if (swipeDirection === "up") {
-        player.y -= speed;
-      } else if (swipeDirection === "down") {
-        player.y += speed;
+      // Ensure swipe is held for at least 100ms
+      if (swipeDuration >= 100) {
+        if (swipeDirection === "left") {
+          player.x -= speed;
+        } else if (swipeDirection === "right") {
+          player.x += speed;
+        } else if (swipeDirection === "up") {
+          player.y -= speed;
+        } else if (swipeDirection === "down") {
+          player.y += speed;
+        }
       }
 
       if (player.x < 0 || player.x + player.width > canvas.width || player.y < 0 || player.y + player.height > canvas.height) {
@@ -142,7 +147,7 @@
       const tapX = event.clientX;
       const tapY = event.clientY;
 
-      // Check if the player tapped the enemy
+      // Check if the player tapped the enemy and there's a collision
       if (tapX >= enemy.x && tapX <= enemy.x + enemy.width && tapY >= enemy.y && tapY <= enemy.y + enemy.height) {
         if (!applyHitstun(enemy)) {
           // Apply damage and knockback to the enemy
@@ -152,7 +157,7 @@
         }
       }
 
-      // Check if the enemy tapped the player
+      // Check if the enemy tapped the player and there's a collision
       if (tapX >= player.x && tapX <= player.x + player.width && tapY >= player.y && tapY <= player.y + player.height) {
         if (!applyHitstun(player)) {
           // Apply damage and knockback to the player
@@ -186,6 +191,7 @@
 
     function touchStart(event) {
       swipeStart = { x: event.touches[0].pageX, y: event.touches[0].pageY };
+      swipeStartTime = Date.now(); // Record the start time of the swipe
     }
 
     function touchEnd(event) {
