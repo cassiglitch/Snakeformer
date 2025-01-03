@@ -26,7 +26,37 @@
 
         const particles = []; // Global particle array
 
-        function shootWaveOfParticles(pX, pY, numberOfParticles, waveSpreadAngle, particleSpeed, particleColor, particleSize, duration) {
+        // Function to generate coordinates for a polygon
+        function generatePolygonCoordinates(x, y, length, sides, coordinates) {
+            const angleBetweenSides = (2 * Math.PI) / sides;
+            for (let i = 0; i < sides; i++) {
+                const angle = i * angleBetweenSides;
+                const nextAngle = (i + 1) * angleBetweenSides;
+
+                const currentX = Math.round(x + length * Math.cos(angle));
+                const currentY = Math.round(y + length * Math.sin(angle));
+                const nextX = Math.round(x + length * Math.cos(nextAngle));
+                const nextY = Math.round(y + length * Math.sin(nextAngle));
+
+                generateStraightLineCoordinates(currentX, currentY, nextX, nextY, coordinates);
+            }
+        }
+
+        // Function to generate straight line coordinates
+        function generateStraightLineCoordinates(startX, startY, endX, endY, coordinates) {
+            const dx = endX - startX;
+            const dy = endY - startY;
+            const steps = Math.max(Math.abs(dx), Math.abs(dy));
+
+            for (let i = 0; i <= steps; i++) {
+                const x = Math.round(startX + dx * (i / steps));
+                const y = Math.round(startY + dy * (i / steps));
+                coordinates.push({ x, y });
+            }
+        }
+
+        // Function to shoot a wave of particles with a specific shape
+        function shootWaveOfParticles(pX, pY, numberOfParticles, waveSpreadAngle, particleSpeed, particleColor, particleSize, duration, shape, sides = 0) {
             const halfSpread = waveSpreadAngle / 2;
             const angleIncrement = (waveSpreadAngle / numberOfParticles) * (Math.PI / 180);
 
@@ -35,21 +65,31 @@
                 const velocityX = Math.cos(angle) * particleSpeed;
                 const velocityY = Math.sin(angle) * particleSpeed;
 
-                particles.push({
+                const particle = {
                     x: pX,
                     y: pY,
                     velocityX,
                     velocityY,
                     color: particleColor,
                     size: particleSize,
-                    lifeRemaining: duration
-                });
+                    lifeRemaining: duration,
+                    shape: shape,
+                    sides: sides,
+                    coordinates: []
+                };
+
+                if (shape === 'polygon' && sides > 2) {
+                    generatePolygonCoordinates(pX, pY, particleSize, sides, particle.coordinates);
+                }
+
+                particles.push(particle);
             }
         }
 
+        // Function to animate particles
         function animate() {
             if (!isPaused) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas between frames
 
                 // Update and draw particles
                 for (let i = particles.length - 1; i >= 0; i--) {
@@ -57,10 +97,21 @@
                     particle.x += particle.velocityX;
                     particle.y += particle.velocityY;
 
+                    // Draw the shape of the particle
                     ctx.beginPath();
                     ctx.fillStyle = particle.color;
-                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                    ctx.fill();
+                    if (particle.shape === 'circle') {
+                        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (particle.shape === 'polygon' && particle.coordinates.length > 0) {
+                        ctx.moveTo(particle.coordinates[0].x + particle.x, particle.coordinates[0].y + particle.y);
+                        for (let j = 1; j < particle.coordinates.length; j++) {
+                            const coord = particle.coordinates[j];
+                            ctx.lineTo(coord.x + particle.x, coord.y + particle.y);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                    }
 
                     particle.lifeRemaining -= 16; // Assuming ~60fps
                     if (particle.lifeRemaining <= 0) {
@@ -74,7 +125,8 @@
         }
 
         // Example usage
-        shootWaveOfParticles(100, 100, 1000, 360, 4, 'rgba(255, 0, 0, 0.8)', 5, 3000);
+        shootWaveOfParticles(100, 100, 1000, 360, 4, 'rgba(255, 0, 0, 0.8)', 5, 3000, 'polygon', 5); // 5-sided polygon
+        shootWaveOfParticles(500, 500, 1000, 360, 4, 'rgba(0, 255, 0, 0.8)', 5, 3000, 'circle'); // Circle
         animate();
 
         // Event listener for pause toggle
