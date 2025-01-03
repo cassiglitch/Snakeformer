@@ -27,7 +27,8 @@
         const particles = []; // Global particle array
 
         // Function to generate coordinates for a polygon
-        function generatePolygonCoordinates(x, y, length, sides, coordinates) {
+        function generatePolygonCoordinates(x, y, length, sides) {
+            const coordinates = [];
             const angleBetweenSides = (2 * Math.PI) / sides;
             for (let i = 0; i < sides; i++) {
                 const angle = i * angleBetweenSides;
@@ -40,6 +41,7 @@
 
                 generateStraightLineCoordinates(currentX, currentY, nextX, nextY, coordinates);
             }
+            return coordinates;
         }
 
         // Function to generate straight line coordinates
@@ -79,7 +81,7 @@
                 };
 
                 if (shape === 'polygon' && sides > 2) {
-                    generatePolygonCoordinates(pX, pY, particleSize, sides, particle.coordinates);
+                    particle.coordinates = generatePolygonCoordinates(pX, pY, particleSize, sides);
                 }
 
                 particles.push(particle);
@@ -125,7 +127,7 @@
         }
 
         // Example usage
-        shootWaveOfParticles(100, 100, 1000, 360, 4, 'rgba(255, 0, 0, 0.8)', 10, 3000, 'polygon', 4); // 5-sided polygon
+        shootWaveOfParticles(100, 100, 1000, 360, 4, 'rgba(255, 0, 0, 0.8)', 10, 3000, 'polygon', 5); // 5-sided polygon
         shootWaveOfParticles(500, 500, 1000, 360, 4, 'rgba(0, 255, 0, 0.8)', 5, 3000, 'circle'); // Circle
         animate();
 
