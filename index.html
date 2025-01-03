@@ -18,70 +18,71 @@
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        let isPaused = false
+        let isPaused = false;
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-function shootWaveOfParticles(pX, pY, numberOfParticles, waveSpreadAngle, particleSpeed, particleColor, particleSize, duration) {
-    const particles = []; // Array to hold all active particles
 
-    // Convert direction and angle setup
-    const directionRad = 0; // Default direction (to the right, can be customized)
-    const halfSpread = waveSpreadAngle / 2;
-    const adjustedAngle = directionRad - (halfSpread * (Math.PI / 180));
-    const angleIncrement = (waveSpreadAngle / numberOfParticles) * (Math.PI / 180);
+        const particles = []; // Global particle array
 
-    // Create particles
-    for (let i = 0; i < numberOfParticles; i++) {
-        const angle = angleIncrement * i + adjustedAngle;
+        function shootWaveOfParticles(pX, pY, numberOfParticles, waveSpreadAngle, particleSpeed, particleColor, particleSize, duration) {
+            const halfSpread = waveSpreadAngle / 2;
+            const angleIncrement = (waveSpreadAngle / numberOfParticles) * (Math.PI / 180);
 
-        const velocityX = Math.cos(angle) * particleSpeed;
-        const velocityY = Math.sin(angle) * particleSpeed;
+            for (let i = 0; i < numberOfParticles; i++) {
+                const angle = (angleIncrement * i) - (halfSpread * Math.PI / 180);
+                const velocityX = Math.cos(angle) * particleSpeed;
+                const velocityY = Math.sin(angle) * particleSpeed;
 
-        const particle = {
-            x: pX,
-            y: pY,
-            velocityX: velocityX,
-            velocityY: velocityY,
-            color: particleColor,
-            size: particleSize,
-            lifeRemaining: duration // Duration in milliseconds
-        };
-
-        particles.push(particle);
-    }
-
-    const updateInterval = setInterval(() => {
-        if (!isPaused) {
-            particles.forEach((particle, index) => {
-                // Update position
-                particle.x += particle.velocityX;
-                particle.y += particle.velocityY;
-
-                // Render the particle
-                ctx.beginPath();
-                ctx.fillStyle = particle.color;
-                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Decrease life and remove if expired
-                particle.lifeRemaining -= 16; // Assuming ~60fps
-                if (particle.lifeRemaining <= 0) {
-                    particles.splice(index, 1);
-                }
-            });
-
-            // If no particles are left, clear the interval
-            if (particles.length === 0) {
-                clearInterval(updateInterval);
+                particles.push({
+                    x: pX,
+                    y: pY,
+                    velocityX,
+                    velocityY,
+                    color: particleColor,
+                    size: particleSize,
+                    lifeRemaining: duration
+                });
             }
         }
-    }, 16); // ~60fps update rate
-}
 
-shootWaveOfParticles(100, 100, 4000, 360, 4, 'rgba(255, 0, 0, 0.8)', 5, 100);
-        
+        function animate() {
+            if (!isPaused) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Update and draw particles
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const particle = particles[i];
+                    particle.x += particle.velocityX;
+                    particle.y += particle.velocityY;
+
+                    ctx.beginPath();
+                    ctx.fillStyle = particle.color;
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    particle.lifeRemaining -= 16; // Assuming ~60fps
+                    if (particle.lifeRemaining <= 0) {
+                        particles.splice(i, 1); // Remove expired particle
+                    }
+                }
+            }
+
+            // Continue animation loop
+            requestAnimationFrame(animate);
+        }
+
+        // Example usage
+        shootWaveOfParticles(100, 100, 1000, 360, 4, 'rgba(255, 0, 0, 0.8)', 5, 3000);
+        animate();
+
+        // Event listener for pause toggle
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'p') {
+                isPaused = !isPaused;
+            }
+        });
     </script>
 </body>
 </html>
