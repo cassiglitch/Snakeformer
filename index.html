@@ -1,264 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Swipe Battle Game</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background-color: #f0f0f0;
-      overflow: hidden;
-    }
-
-    canvas {
-      border: 2px solid black;
-      background-color: #fff;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projectile to Particle Conversion</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
+    <canvas id="gameCanvas"></canvas>
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+function emitParticles(pX, pY, particleCount, spreadAngle, particleSpeed, particleColor, particleSize, duration, gravity = 0, fadeOut = true) {
+    const particles = [];
+    const halfSpread = spreadAngle / 2;
+    const angleIncrement = (spreadAngle / particleCount) * (Math.PI / 180);
 
-    function resizeCanvas() {
-      // Set canvas size to window size
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+    for (let i = 0; i < particleCount; i++) {
+        const angle = angleIncrement * i - (halfSpread * (Math.PI / 180));
+        const velocityX = Math.cos(angle) * particleSpeed;
+        const velocityY = Math.sin(angle) * particleSpeed;
+
+        const particle = {
+            x: pX,
+            y: pY,
+            velocityX: velocityX,
+            velocityY: velocityY,
+            size: particleSize,
+            color: particleColor,
+            life: duration, // Particle lifespan
+            initialLife: duration,
+        };
+
+        particles.push(particle);
     }
 
-    // Resize canvas initially
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
-
-    const floorY = canvas.height - 50; // Floor at the bottom of the canvas
-
-    // Initial spawn positions
-    let player = {
-      x: 100,
-      y: floorY - 50, // Start on the floor
-      width: 50,
-      height: 50,
-      health: 0, // Start at 0% health
-      color: "blue",
-      velocityY: 0,
-      knockback: 0,
-      onGround: true,
-      speed: 10
-    };
-
-    let enemy = {
-      x: canvas.width - 150,
-      y: floorY - 50, // Start on the floor
-      width: 50,
-      height: 50,
-      health: 0, // Start at 0% health
-      color: "red",
-      velocityY: 0,
-      knockback: 0,
-      onGround: true,
-      speed: 10
-    };
-
-    let swipeStart = null;
-    let swipeEnd = null;
-    let swipeStartTime = 0;
-    let lastHitTime = 0;
-
-    function drawRect(x, y, width, height, color) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x, y, width, height);
-    }
-
-    function drawHealthBar(x, y, health, color) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x, y - 10, health * 0.5, 5);
-    }
-
-    function updateHealthDisplay() {
-      ctx.fillStyle = "black";
-      ctx.font = "20px Arial";
-      ctx.fillText(`Player: ${player.health}%`, player.x, player.y - 20);
-      ctx.fillText(`Enemy: ${enemy.health}%`, enemy.x, enemy.y - 20);
-    }
-
-    function applyDamageTo(character, damage) {
-      character.health += damage;
-      if (character.health >= 100) {
-        character.health = 100; // Max out at 100%
-      }
-      // Increase knockback based on health damage
-      const knockbackScale = character.health / 100 * 50; // Stronger knockback as damage increases
-      character.knockback = knockbackScale;
-    }
-
-    function detectCollision() {
-      const playerRight = player.x + player.width;
-      const playerBottom = player.y + player.height;
-      const enemyRight = enemy.x + enemy.width;
-      const enemyBottom = enemy.y + enemy.height;
-
-      if (playerRight > enemy.x && player.x < enemyRight && playerBottom > enemy.y && player.y < enemyBottom) {
-        return true;
-      }
-      return false;
-    }
-
-    function applyGravity() {
-      const gravity = 0.5;
-      if (!player.onGround) {
-        player.velocityY += gravity;
-        player.y += player.velocityY;
-      }
-      if (!enemy.onGround) {
-        enemy.velocityY += gravity;
-        enemy.y += enemy.velocityY;
-      }
-    }
-
-    function checkFloorCollision(character) {
-      character.onGround = false;
-
-      // Check if the character is on the floor
-      if (character.y + character.height >= floorY) {
-        character.onGround = true;
-        character.velocityY = 0;
-        character.y = floorY - character.height;
-      }
-    }
-
-    function respawn(character, spawnX, spawnY) {
-      if (character.y > canvas.height) { // If the character falls off the screen
-        character.x = spawnX; // Respawn at initial spawn point
-        character.y = spawnY;
-        character.health = 0; // Reset health to 0%
-      }
-    }
-
-    function handleKeyPress(event) {
-      const speed = 10;
-
-      // Move left and right
-      if (event.key === "ArrowLeft") {
-        player.x -= speed;
-      } else if (event.key === "ArrowRight") {
-        player.x += speed;
-      }
-
-      // Jump (Up arrow)
-      if (event.key === "ArrowUp" && player.onGround) {
-        player.velocityY = -15; // Jump height
-      }
-
-      // Attack (Down arrow)
-      if (event.key === "ArrowDown") {
-        if (detectCollision()) {
-          applyDamageTo(enemy, 10); // Deal 10 damage to the enemy on attack
-          enemy.x -= enemy.knockback; // Apply knockback based on enemy's health
+    const updateInterval = setInterval(() => {
+        if (particles.length === 0) {
+            clearInterval(updateInterval); // Stop updating if no particles are left
+            return;
         }
-      }
 
-      // Prevent player from going out of bounds
-      if (player.x < 0) {
-        player.x = 0;
-      }
-      if (player.x + player.width > canvas.width) {
-        player.x = canvas.width - player.width;
-      }
-    }
+        particles.forEach((particle, index) => {
+            // Update position
+            particle.x += particle.velocityX;
+            particle.y += particle.velocityY;
 
-    function handleSwipe(event) {
-      const swipeThreshold = 50;
-      const currentTime = new Date().getTime();
+            // Apply gravity
+            particle.velocityY += gravity;
 
-      if (event.touches.length === 1) {
-        const touch = event.touches[0];
-        const deltaX = touch.pageX - swipeStart.x;
-        const deltaY = touch.pageY - swipeStart.y;
+            // Reduce life
+            particle.life -= 1;
 
-        if (currentTime - swipeStartTime > 100) {
-          // Left swipe
-          if (deltaX < -swipeThreshold) {
-            player.x -= player.speed;
-          }
-          // Right swipe
-          else if (deltaX > swipeThreshold) {
-            player.x += player.speed;
-          }
-          // Jump swipe (Up)
-          else if (deltaY < -swipeThreshold && player.onGround) {
-            player.velocityY = -15; // Jump height
-          }
-        }
-      }
-    }
+            // Optional: Fade out
+            if (fadeOut) {
+                const alpha = Math.max(0, particle.life / particle.initialLife);
+                particle.color = `rgba(${parseInt(particleColor.slice(1, 3), 16)}, ${parseInt(particleColor.slice(3, 5), 16)}, ${parseInt(particleColor.slice(5, 7), 16)}, ${alpha})`;
+            }
 
-    function handleTouchStart(event) {
-      swipeStart = { x: event.touches[0].pageX, y: event.touches[0].pageY };
-      swipeStartTime = new Date().getTime();
-    }
+            // Draw particle
+            drawParticle(particle);
 
-    function handleTouchEnd(event) {
-      const touch = event.changedTouches[0];
+            // Remove dead particles
+            if (particle.life <= 0) {
+                particles.splice(index, 1);
+            }
+        });
+    }, 16); // ~60 FPS
+}
 
-      // Attack on tap (Down swipe or tap)
-      if (Math.abs(touch.pageY - swipeStart.y) < 50 && detectCollision()) {
-        applyDamageTo(enemy, 10); // Deal 10 damage to the enemy on attack
-        // Apply stronger knockback to the enemy
-        enemy.x -= enemy.knockback * 1.5; // Increase knockback for stronger effect
-      }
+function drawParticle(particle) {
+    ctx.beginPath();
+    ctx.fillStyle = particle.color;
+    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+    ctx.fill();
+}
 
-      swipeStart = null;
-    }
+emitParticles(100, 100, 50, 360, 2, '#FF0000', 5, 100, 0.1, true);
 
-    function update() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      applyGravity();
-      checkFloorCollision(player);
-      checkFloorCollision(enemy);
-
-      // Respawn if they fall off the screen
-      respawn(player, 100, floorY - 50);
-      respawn(enemy, canvas.width - 150, floorY - 50);
-
-      // Draw floor
-      ctx.fillStyle = "black";
-      ctx.fillRect(0, floorY, canvas.width, canvas.height - floorY);
-
-      // Draw player and enemy
-      drawRect(player.x, player.y, player.width, player.height, player.color);
-      drawRect(enemy.x, enemy.y, enemy.width, enemy.height, enemy.color);
-
-      // Draw health bars
-      drawHealthBar(player.x, player.y, player.health, player.color);
-      drawHealthBar(enemy.x, enemy.y, enemy.health, enemy.color);
-
-      updateHealthDisplay();
-    }
-
-    // Handle key press events
-    window.addEventListener("keydown", handleKeyPress);
-
-    // Handle touch events for swipe controls
-    window.addEventListener("touchstart", handleTouchStart);
-    window.addEventListener("touchmove", handleSwipe);
-    window.addEventListener("touchend", handleTouchEnd);
-
-    function gameLoop() {
-      update();
-      requestAnimationFrame(gameLoop);
-    }
-
-    gameLoop();
-  </script>
+    </script>
 </body>
 </html>
