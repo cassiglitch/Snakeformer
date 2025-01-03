@@ -1,28 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Projectile to Particle Conversion</title>
+    <meta charset="UTF-8">
     <style>
         body {
             margin: 0;
-            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #282c34;
+            color: white;
+            font-family: Arial, sans-serif;
         }
-        canvas {
-            display: block;
+        
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        #gameCanvas {
+            border: 2px solid white;
+            background: black;
+            display: flex;
+             top: 0px; /* Adjust the top position as needed */
+            bottom: 0px; 
+            overflow:hidden;
+            position: fixed;
+            touch-action: none;
+            font-size: var(--grid-size); /* Set font size equal to grid size */
+            user-select: none;
+            z-index: 9999;  
+            -webkit-user-select: none; /* For Safari */
+            -moz-user-select: none; /* For Firefox */
+             -ms-user-select: none; /* For Internet Explorer/Edge */
+        }
+        
+        
+        .explosion {
+            animation: explode 1s ease-out;
+        }
+        
+        @keyframes explode {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.5); }
+            100% { opacity: 0; transform: scale(2); }
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-
+        <canvas id="gameCanvas"></canvas>
     <script>
-        let isPaused = false;
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+canvas.width = 400; // Or desired width
+canvas.height = 400; // Or desired height
+
+let negativeLifePenalty = false
+let connectedPoints = []
+let tetrisSpawnChance = 0.9
+        let gridSize = 20; // Size of grid cells
+        let startingGridSize = 20
+        let columns = canvas.width / gridSize;
+        let rows = canvas.height / gridSize;
+let blockCoordinates = [];  // New array to store coordinates of the blocks
+        // Game state
+        let isPaused = false
+        let snake = [{ x: 5, y: 5 }];
+        let direction = { x: 1, y: 0 };
+        let pellets = [];
+        let tetrisBlocks = [];
+        let tetrisCoordinates = new Set(); // Tracks all occupied Tetris block cells
+        let score = 0;
+        let health = 5;
+        const maxPellets = 5;
+        let gameInterval;
+        let bombs = []; // To store bombs
+           let clearedLines = 0;
+    let explosions = []
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+// Add hitstun state and timer
+let isHitstunned = false;
+let hitstunTimer = 0;
+const hitstunDuration = 2000; // 5 seconds in milliseconds
 
         const particles = []; // Global particle array
 
@@ -124,17 +190,709 @@
             requestAnimationFrame(animate);
         }
 
-        // Example usage
-        shootWaveOfParticles(100, 100, 1000, 360, 4, 'rgba(255, 0, 0, 0.8)', 10, 3000, 'polygon', 3); // 5-sided polygon
-        shootWaveOfParticles(500, 500, 1000, 360, 4, 'rgba(0, 255, 0, 0.8)', 10, 3000, 'circle'); // Circle
-        animate();
+       
 
-        // Event listener for pause toggle
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'p') {
-                isPaused = !isPaused;
+
+function checkAndClearSnakeRowsAndColumns() {
+  // Define canvas and gridSize
+
+  // Calculate grid dimensions
+  const rownumber = canvas.height / gridSize;
+  const cols = canvas.width / gridSize;
+
+  // Create a 2D array to track grid occupancy
+  const grid = Array.from({ length: rownumber }, () => Array(cols).fill(false));
+
+  // Mark snake positions on the grid
+  for (const segment of snake) {
+    if (segment.x >= 0 && segment.x < cols && segment.y >= 0 && segment.y < rows) {
+      grid[segment.y][segment.x] = true;
+    }
+  }
+
+  // Check for full rows
+  for (let y = 0; y < rows; y++) {
+    if (grid[y].every(cell => cell)) {
+      // Remove snake segments in the full row
+      for (let x = 0; x < cols; x++) {
+        const index = snake.findIndex(segment => segment.x === x && segment.y === y);
+        if (index !== -1) {
+            shootWaveOfParticles(snake[index].x, snake[index].y, 1000, 360, 4, 'rgba(255, 0, 0, 0.8)', 10, 20, 'circle'); // 5-sided polygo
+          snake.splice(index, 1);
+if (score - 10 >= 0) { // Check if score will not go negative
+    score -= 10;       // Subtract 10 from score
+} else {
+    if (!negativeLifePenalty) { // If penalty hasn't been applied yet
+        health -= 1;            // Subtract 1 from health
+        negativeLifePenalty = true; // Set penalty flag
+    }
+}
+        }
+      }
+    }
+  }
+
+  // Check for full columns
+  for (let x = 0; x < cols; x++) {
+    if (grid.every(row => row[x])) {
+      // Remove snake segments in the full column
+      for (let y = 0; y < rows; y++) {
+        const index = snake.findIndex(segment => segment.x === x && segment.y === y);
+        if (index !== -1) {
+            shootWaveOfParticles(snake[index].x, snake[index].y, 1000, 360, 4, 'rgba(255, 0, 0, 0.8)', 10, 20, 'circle'); // 5-sided polygon
+          snake.splice(index, 1);
+            if (score - 10 >= 0) { // Check if score will not go negative
+    score -= 10;       // Subtract 10 from score
+} else {
+    if (!negativeLifePenalty) { // If penalty hasn't been applied yet
+        health -= 1;            // Subtract 1 from health
+        negativeLifePenalty = true; // Set penalty flag
+    }
+}
+        }
+      }
+    }
+  }
+}
+
+        
+function handleTouchStart(event) {
+    const touch = event.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+}
+
+function handleTouchEnd(event) {
+    const touch = event.changedTouches[0];
+    touchEndX = touch.clientX;
+    touchEndY = touch.clientY;
+
+    const dx = touchEndX - touchStartX;
+    const dy = touchEndY - touchStartY;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal swipe
+        if (dx > 0) {
+            setDirection(1, 0); // Swipe right
+        } else {
+            setDirection(-1, 0); // Swipe left
+        }
+    } else {
+        // Vertical swipe
+        if (dy > 0) {
+            setDirection(0, 1); // Swipe down
+        } else {
+            setDirection(0, -1); // Swipe up
+        }
+    }
+}
+
+// Helper function to set direction
+function setDirection(x, y) {
+    if (direction.x !== -x && direction.y !== -y) {
+        direction = { x, y };
+    }
+}
+
+// Add touch event listeners
+document.addEventListener('touchstart', handleTouchStart);
+document.addEventListener('touchend', handleTouchEnd);
+
+let touchStartTime = 0;
+
+function handleTouchStartForBomb(event) {
+    touchStartTime = Date.now();
+}
+
+function handleTouchEndForBomb(event) {
+    const touchDuration = Date.now() - touchStartTime;
+    if (touchDuration < 500) {
+        dropBomb(); // Drop a bomb on tap
+    }
+}
+
+// Add event listeners for bomb dropping
+document.addEventListener('touchstart', handleTouchStartForBomb);
+document.addEventListener('touchend', handleTouchEndForBomb);
+
+// Function to toggle the isPaused state
+function togglePause() {
+    isPaused = !isPaused;
+}
+
+// Event listener for the "P" key
+window.addEventListener("keydown", (event) => {
+    if (event.key.toLowerCase() === "p") {
+        togglePause();
+    }
+});
+
+// Variables for the canvas hold detection
+let holdTimeout;
+let isHolding = false;
+
+// Mouse down on canvas starts the hold timer
+document.addEventListener("touchstart", () => {
+    isHolding = true;
+    holdTimeout = setTimeout(() => {
+        if (isHolding) {
+            togglePause();
+        }
+    }, 900); // 5 seconds
+});
+
+// Mouse up on canvas clears the hold timer
+document.addEventListener("touchend", () => {
+    isHolding = false;
+    clearTimeout(holdTimeout);
+});
+
+// Mouse out cancels the hold if the cursor leaves the canvas
+document.addEventListener("mouseleave", () => {
+    isHolding = false;
+    clearTimeout(holdTimeout);
+});
+        // Initialize game
+        function startGame() {
+            spawnPellet();
+            gameInterval = setInterval(updateGame, 100);
+            document.addEventListener('keydown', handleKeyInput);
+        }
+
+        // Helper function to convert x,y to unique key for tetrisCoordinates
+        function coordToKey(x, y) {
+            return `${x},${y}`;
+        }
+
+        // Helper function to check if a coordinate exists in tetrisCoordinates
+        function isTetrisOccupied(x, y) {
+            return tetrisCoordinates.has(coordToKey(x, y));
+        }
+
+        // Draw grid
+        function drawGrid() {
+            ctx.strokeStyle = '#333';
+            for (let x = 0; x <= columns; x++) {
+                ctx.beginPath();
+                ctx.moveTo(x * gridSize, 0);
+                ctx.lineTo(x * gridSize, canvas.height);
+                ctx.stroke();
             }
+            for (let y = 0; y <= rows; y++) {
+                ctx.beginPath();
+                ctx.moveTo(0, y * gridSize);
+                ctx.lineTo(canvas.width, y * gridSize);
+                ctx.stroke();
+            }
+        }
+
+
+        // Draw pellets
+        function drawPellets() {
+            ctx.fillStyle = 'yellow';
+            pellets.forEach(pellet => {
+                ctx.fillRect(pellet.x * gridSize, pellet.y * gridSize, gridSize, gridSize);
+            });
+        }
+
+        // Draw Tetris blocks
+        function drawTetrisBlocks() {
+            tetrisBlocks.forEach(block => {
+                ctx.fillStyle = block.color;
+                block.shape.forEach(cell => {
+                    ctx.fillRect((block.x + cell.x) * gridSize, (block.y + cell.y) * gridSize, gridSize, gridSize);
+                });
+            });
+        }
+
+        // Draw bombs
+        function drawBombs() {
+            bombs.forEach(bomb => {
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(bomb.x * gridSize + gridSize / 2, bomb.y * gridSize + gridSize / 2, gridSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+function findConnectedPoints(coordinates) {
+    // Helper function to check if two points are connected
+    function areConnected(point1, point2) {
+        // Modify this condition based on your definition of connection
+        // Example: connection by adjacency
+        return Math.abs(point1.x - point2.x) <= 1 && Math.abs(point1.y - point2.y) <= 1;
+    }
+
+    connectedPoints = [];
+    const visited = new Set();
+
+    // Recursive function to find all connected points
+    function dfs(currentPoint) {
+        const key = `${currentPoint.x},${currentPoint.y}`;
+        if (visited.has(key)) return;
+
+        visited.add(key);
+        connectedPoints.push(currentPoint);
+
+        for (const point of coordinates) {
+            if (!visited.has(`${point.x},${point.y}`) && areConnected(currentPoint, point)) {
+                dfs(point);
+            }
+        }
+    }
+
+    // Find starting points (y === 0)
+    for (const point of coordinates) {
+        if (point.y === 0 && !visited.has(`${point.x},${point.y}`)) {
+            dfs(point);
+        }
+    }
+
+}
+
+
+
+function convertToCoordinates(set) {
+    return set.map(item => {
+        const [x, y] = item; // Destructure the array directly
+        return { x: x, y: y }; // Return as an object with x and y
+    });
+}
+
+let scoreAddLineClear = false
+function updateGame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    resizeCanvas();
+    drawGrid();
+    checkAndClearSnakeRowsAndColumns()
+    negativeLifePenalty = false
+    pellets = []
+    if (isPaused === false) {
+        moveSnake();
+        handleCollisions();
+    }
+    drawSnake();
+    drawPellets();
+    if (pellets.length === 0) {
+        spawnPellet();
+    }
+    animate();
+    drawTetrisBlocks();
+    drawBombs();
+    if (isPaused === false) {
+        moveTetrisBlocks();
+        maybeSpawnTetrisBlock();
+        updateBombs();
+        updateHitstun(); // New function for handling hitstun
+        findConnectedPoints(blockCoordinates)
+            const hasBottomY = connectedPoints.some(point => point.y >= canvas.height/gridSize - 1);
+    // If no such point exists, clear the array
+    if (!hasBottomY) {
+        connectedPoints = [];
+    }else {
+        connectedPoints.forEach((item) => {
+        let itemtopush = {x: item.x, y:item.y, timer:Date.now()- 1500}
+        bombs.push(itemtopush)
+        })
+        triggerHitstun();
+if (scoreAddLineClear === false){
+        score += 100
+        scoreAddLineClear = true
+    }
+}    
+}
+if (connectedPoints.length === 0){
+        scoreAddLineClear = false
+}
+    if (health <= 0){
+gameOver()
+    }
+    columns = canvas.width / gridSize;
+    rows = canvas.height / gridSize;
+
+    // Draw score and health
+ctx.font = '24px Arial';
+ctx.fillStyle = 'white';
+
+const x = 10;
+let y = 30; // Start Y position
+// Draw Score and Health
+ctx.fillText(`Score: ${score}`, x, y);
+ctx.fillText(`Health: ${health}`, x, y + 20);
+}
+
+
+// New function to handle hitstun updates
+function updateHitstun() {
+    if (isHitstunned) {
+        hitstunTimer -= 100; // Subtract the interval duration (100ms)
+        if (hitstunTimer <= 0) {
+            isHitstunned = false;
+        }
+    }
+}
+function transformSnake(block) {
+    // Add each part of the Tetris block to the snake's body
+    block.shape.forEach((part) => {
+        snake.push({ 
+            x: block.x + part.x * gridSize, 
+            y: block.y + part.y * gridSize 
         });
+    });
+}
+
+function handleCollisions() {
+    const head = snake[0]; // Get the snake's head (leading segment)
+
+    // Loop through all Tetris blocks
+    tetrisBlocks.forEach((block, blockIndex) => {
+        // Check if any cell in the block's shape collides with the snake's head
+        const collided = block.shape.some(cell => {
+            const cellX = block.x + cell.x; // Absolute x-position of the cell
+            const cellY = block.y + cell.y; // Absolute y-position of the cell
+
+            // Check for collision with the snake's head
+            return cellX === head.x && cellY === head.y;
+        });
+
+        // If a collision is detected and the block's color is green, transform the snake
+        if (collided && block.color === '#0f0') {
+            transformSnake(block); // Apply the transformation
+            tetrisBlocks.splice(blockIndex, 1); // Remove the block from the array
+            score += 10
+        }else if (collided && !isHitstunned) {
+                        triggerHitstun();
+                        health--;
+                        if (health <= 0) {
+                            gameOver();
+                        }
+                    }
+
+    });
+}
+
+
+
+// New function to trigger hitstun
+function triggerHitstun() {
+    isHitstunned = true;
+    hitstunTimer = hitstunDuration;
+}
+
+// Modify drawSnake to include orange aura during hitstun
+function drawSnake() {
+    snake.forEach((segment, index) => {
+        if (isHitstunned) {
+            // Draw orange aura
+            ctx.fillStyle = 'orange';
+            ctx.fillRect(
+                segment.x * gridSize - 2, // Slightly larger than the segment size
+                segment.y * gridSize - 2,
+                gridSize + 4,
+                gridSize + 4
+            );
+        }
+
+        // Draw snake normally
+        ctx.fillStyle = index === 0 ? 'lime' : 'green';
+        ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+    });
+}
+
+
+
+        // Move snake
+        function moveSnake() {
+            const head = { ...snake[0] };
+            head.x += direction.x;
+            head.y += direction.y;
+
+            // Handle Pac-Man-style looping
+            if (head.x < 0) head.x = columns - 1;
+            if (head.x >= columns) head.x = 0;
+            if (head.y < 0) head.y = rows - 1;
+            if (head.y >= rows) head.y = 0;
+
+            snake.unshift(head);
+
+            // Remove tail if no pellet eaten
+            if (!pellets.some(pellet => pellet.x === head.x && pellet.y === head.y)) {
+                snake.pop();
+            } else {
+                // Consume pellet
+                pellets = pellets.filter(pellet => pellet.x !== head.x || pellet.y !== head.y);
+                score++;
+                document.getElementById('score').innerText = score;
+                if (pellets.length < maxPellets) spawnPellet();
+            }
+        }
+
+        // Spawn pellet
+        function spawnPellet() {
+            let pellet;
+            do {
+                pellet = { x: Math.floor(Math.random() * columns), y: Math.floor(Math.random() * rows) };
+            } while (snake.some(segment => segment.x === pellet.x && segment.y === pellet.y) || isTetrisOccupied(pellet.x, pellet.y));
+            pellets.push(pellet);
+        }
+
+        // Spawn Tetris block randomly
+        function maybeSpawnTetrisBlock() {
+            if (Math.random() < tetrisSpawnChance) { // 5% chance each frame
+                spawnTetrisBlock();
+            }
+        }
+
+        // Spawn Tetris block
+        function spawnTetrisBlock() {
+            const shapes = [
+                [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }], // I shape
+                [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }], // O shape
+                [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }], // L shape
+                [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }], // J shape
+                [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }]  // T shape
+            ];
+
+            const randomShape = shapes[Math.floor(Math.random() * shapes.length)];
+            const color = ['#f00', '#0f0', '#00f', '#ff0', '#0ff'][Math.floor(Math.random() * 5)];
+            const randomX = Math.floor(Math.random() * (columns - 4)); // Randomize x-position
+            tetrisBlocks.push({ x: randomX, y: 0, shape: randomShape, color: color });
+        }
+
+// Move Tetris blocks
+function moveTetrisBlocks() {
+    // Keep track of all valid coordinates that belong to tetrisBlocks
+    const validCoordinates = new Set();
+    blockCoordinates = [];  // New array to store coordinates of the blocks
+
+    tetrisBlocks.forEach(block => {
+        // Remove old positions from tetrisCoordinates
+        block.shape.forEach(cell => {
+            tetrisCoordinates.delete(coordToKey(block.x + cell.x, block.y + cell.y));
+        });
+
+        // Check for collision with bottom or static blocks
+        const collision = block.shape.some(cell => 
+            block.y + cell.y + 1 >= rows || 
+            isTetrisOccupied(block.x + cell.x, block.y + cell.y + 1)
+        );
+
+        if (!collision) {
+            block.y++; // Move block down
+        }
+
+        // Add block's current positions to tetrisCoordinates
+        block.shape.forEach(cell => {
+            const key = coordToKey(block.x + cell.x, block.y + cell.y);
+            tetrisCoordinates.add(key);
+            validCoordinates.add(key);
+
+            // Save the x and y coordinates to blockCoordinates
+            blockCoordinates.push({ x: block.x + cell.x, y: block.y + cell.y });
+        });
+    });
+
+    // Cleanup: Remove any coordinates from tetrisCoordinates that are not in validCoordinates
+    tetrisCoordinates.forEach(coord => {
+        if (!validCoordinates.has(coord)) {
+            tetrisCoordinates.delete(coord);
+        }
+    });
+
+}
+
+
+
+
+        // Bomb mechanic - Drop bomb
+        function dropBomb() {
+            const bomb = { x: snake[0].x, y: snake[0].y, timer: Date.now()};
+            bombs.push(bomb);
+        }
+
+        // Update bombs and trigger explosions
+        function updateBombs() {
+            bombs.forEach((bomb, index) => {
+                if (Date.now() - bomb.timer >= 1500) {
+                    triggerExplosion(bomb);
+                    bombs.splice(index, 1);
+                }
+            });
+        }
+function triggerExplosion(bomb) {
+    let explosion = {
+        x: bomb.x,
+        y: bomb.y,
+        radius: 0,
+        alpha: 1,
+        expand: true
+    };
+    explosions.push(explosion);
+
+    function animateExplosion() {
+        if (explosion.expand) {
+            explosion.radius += 0.5;
+              removeExplosionEffects(explosion)
+            if (explosion.radius >= 3) {
+                explosion.expand = false; // Start fading
+            }
+        } else {
+            explosion.alpha -= 0.05;
+            if (explosion.alpha <= 0) {
+                // Remove explosion
+                explosions = explosions.filter(e => e !== explosion);
+                return; // Stop animation
+            }
+        }
+
+        ctx.fillStyle = `rgba(255, 0, 0, ${explosion.alpha})`;
+        ctx.beginPath();
+        ctx.arc(
+            explosion.x * gridSize + gridSize / 2,
+            explosion.y * gridSize + gridSize / 2,
+            explosion.radius * gridSize,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
+
+        requestAnimationFrame(animateExplosion);
+    }
+
+    animateExplosion();
+}
+
+function removeExplosionEffects(explosion) {
+          if (!isHitstunned){
+    // Remove snake segments within explosion radius
+    const filteredSnake = snake.filter(segment => {
+    const distance = Math.sqrt(Math.pow(segment.x - explosion.x, 2) + Math.pow(segment.y - explosion.y, 2));
+    return distance > explosion.radius; // Only keep segments outside the explosion radius
+});
+
+if (filteredSnake.length === 0) {
+    gameOver(); // End the game if no segments are left
+} else {
+    snake = filteredSnake; // Otherwise, update the snake
+}
+}
+
+    // Remove Tetris blocks within explosion radius
+    tetrisBlocks = tetrisBlocks.filter(block => {
+        return block.shape.every(cell => {
+            const distance = Math.sqrt(Math.pow(block.x + cell.x - explosion.x, 2) + Math.pow(block.y + cell.y - explosion.y, 2));
+            return distance > explosion.radius; // Only keep blocks outside the explosion radius
+        });
+    });
+
+}
+
+
+        // Handle key input
+        function handleKeyInput(event) {
+            if (event.key === 'ArrowUp' && direction.y === 0) {
+                direction = { x: 0, y: -1 };
+            } else if (event.key === 'ArrowDown' && direction.y === 0) {
+                direction = { x: 0, y: 1 };
+            } else if (event.key === 'ArrowLeft' && direction.x === 0) {
+                direction = { x: -1, y: 0 };
+            } else if (event.key === 'ArrowRight' && direction.x === 0) {
+                direction = { x: 1, y: 0 };
+            } else if (event.key === ' ') {
+                dropBomb(); // Drop bomb when space is pressed
+            }
+        }
+function closestNumber(n, m) {
+    // Find the quotient
+    let q = Math.floor(n / m);
+
+    // 1st possible closest number
+    let n1 = m * q;
+
+    // 2nd possible closest number
+    let n2 = m * (q + 1);
+
+    // Ensure that n1 does not exceed n
+    if (n1 > n) {
+        return n;
+    }
+
+    // Ensure that n2 does not exceed n
+    if (n2 > n) {
+        return n1;
+    }
+
+    // Return the closest multiple of m to n
+    return Math.abs(n - n1) < Math.abs(n - n2) ? n1 : n2;
+}
+
+function resizeCanvas() {
+    
+    const canvasWidth = closestNumber(window.innerWidth, gridSize);
+    const canvasHeight = closestNumber(window.innerHeight, gridSize);
+    // Remove out-of-bounds elements from mirrors array
+    
+    // Set canvas width and height
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+        }
+        function getZoomFactor() {
+            var deviceWidth, landscape = Math.abs(window.orientation) == 90
+            // workaround for strange screen.height on the iPhone (v3.1.3)
+            if (window.screen.width == 320) deviceWidth = landscape ? 480 : 320
+            else deviceWidth = window.screen[landscape ? "height" : "width"]
+            var zoomFactor = deviceWidth / window.innerWidth;
+            var antiZoomFactor = 1 / zoomFactor;
+          
+            // Apply zoom and anti-zoom factors to grid size
+            gridSize = Math.max(0, Math.ceil(startingGridSize * antiZoomFactor));
+            document.getElementById('scoreDisplay').style.top = (20 * antiZoomFactor) + 'px';
+            document.documentElement.style.setProperty('--grid-size', (20 * antiZoomFactor) + 'px');
+            psize = gridSize;
+        }
+
+        setInterval(getZoomFactor, 1); // Adjust the interval as needed
+
+        // Clean up the interval when the window is closed
+
+// Function to resize the canvas height based on viewport height
+function resizeCanvasHeight() {
+    const windowHeight = window.innerHeight; // Get the viewport height
+    const canvasHeight = closestNumber(window.innerHeight, gridSize);; // Adjust the canvas height to be a multiple of gridSize
+    canvas.height = canvasHeight; // Set the canvas height
+}
+// Call the resizeCanvasHeight function initially to set the canvas height
+resizeCanvasHeight();
+// Call the resizeCanvasHeight function whenever the window is resized
+window.addEventListener('resize', resizeCanvasHeight);
+                function adjustForZoom() {
+            // Calculate the zoom factor
+            const zoomFactor = window.innerWidth / window.screen.availWidth;
+        }
+window.addEventListener('resize', getZoomFactor);
+        // Call the adjustForZoom function initially and on window resize
+        window.addEventListener('resize', adjustForZoom);
+        adjustForZoom();
+
+
+
+        // Game over
+        function gameOver() {
+        snake = [{ x: 5, y: 5 }]; 
+        direction = { x: 1, y: 0 };
+        pellets = [];
+        tetrisBlocks = [];
+        tetrisCoordinates = new Set(); // Tracks all occupied Tetris block cells
+        score = 0;
+        health = 5;
+        maxPellets = 5;
+        gameInterval;
+        bombs = []; // To store bombs
+        explosions = []
+        }
+
+        startGame();
+        updateGame();
     </script>
 </body>
 </html>
