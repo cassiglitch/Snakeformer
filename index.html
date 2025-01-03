@@ -216,7 +216,7 @@ function checkAndClearSnakeRowsAndColumns() {
       for (let x = 0; x < cols; x++) {
         const index = snake.findIndex(segment => segment.x === x && segment.y === y);
         if (index !== -1) {
-            shootWaveOfParticles(snake[index].x, snake[index].y, 1000, 360, 4, 'rgba(255, 0, 0, 0.8)', 10, 20, 'circle'); // 5-sided polygo
+            shootWaveOfParticles(snake[index].x, snake[index].y, 1000, 360, 4, 'rgba(0, 255, 0, 0.8)', 10, 300, 'circle'); // 5-sided polygo
           snake.splice(index, 1);
 if (score - 10 >= 0) { // Check if score will not go negative
     score -= 10;       // Subtract 10 from score
