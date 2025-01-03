@@ -76,13 +76,8 @@
                     size: particleSize,
                     lifeRemaining: duration,
                     shape: shape,
-                    sides: sides,
-                    coordinates: []
+                    sides: sides
                 };
-
-                if (shape === 'polygon' && sides > 2) {
-                    particle.coordinates = generatePolygonCoordinates(pX, pY, particleSize, sides);
-                }
 
                 particles.push(particle);
             }
@@ -102,14 +97,17 @@
                     // Draw the shape of the particle
                     ctx.beginPath();
                     ctx.fillStyle = particle.color;
+
+                    // For each particle, calculate the polygon on each frame based on current position
                     if (particle.shape === 'circle') {
                         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
                         ctx.fill();
-                    } else if (particle.shape === 'polygon' && particle.coordinates.length > 0) {
-                        ctx.moveTo(particle.coordinates[0].x + particle.x, particle.coordinates[0].y + particle.y);
-                        for (let j = 1; j < particle.coordinates.length; j++) {
-                            const coord = particle.coordinates[j];
-                            ctx.lineTo(coord.x + particle.x, coord.y + particle.y);
+                    } else if (particle.shape === 'polygon' && particle.sides > 2) {
+                        const coordinates = generatePolygonCoordinates(particle.x, particle.y, particle.size, particle.sides);
+                        ctx.moveTo(coordinates[0].x, coordinates[0].y);
+                        for (let j = 1; j < coordinates.length; j++) {
+                            const coord = coordinates[j];
+                            ctx.lineTo(coord.x, coord.y);
                         }
                         ctx.closePath();
                         ctx.fill();
@@ -128,7 +126,7 @@
 
         // Example usage
         shootWaveOfParticles(100, 100, 1000, 360, 4, 'rgba(255, 0, 0, 0.8)', 10, 3000, 'polygon', 5); // 5-sided polygon
-        shootWaveOfParticles(500, 500, 1000, 360, 4, 'rgba(0, 255, 0, 0.8)', 5, 3000, 'circle'); // Circle
+        shootWaveOfParticles(500, 500, 1000, 360, 4, 'rgba(0, 255, 0, 0.8)', 10, 3000, 'circle'); // Circle
         animate();
 
         // Event listener for pause toggle
