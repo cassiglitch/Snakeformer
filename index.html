@@ -152,7 +152,6 @@ const hitstunDuration = 2000; // 5 seconds in milliseconds
         // Function to animate particles
         function animate() {
             if (!isPaused) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas between frames
 
                 // Update and draw particles
                 for (let i = particles.length - 1; i >= 0; i--) {
