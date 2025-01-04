@@ -216,7 +216,7 @@ function checkAndClearSnakeRowsAndColumns() {
       for (let x = 0; x < cols; x++) {
         const index = snake.findIndex(segment => segment.x === x && segment.y === y);
         if (index !== -1) {
-            shootWaveOfParticles(0, 0, 1000, 360, 4, 'rgba(0, 255, 0, 0.8)', 10, 300, 'circle'); // 5-sided polygo
+            
           snake.splice(index, 1);
 if (score - 10 >= 0) { // Check if score will not go negative
     score -= 10;       // Subtract 10 from score
@@ -238,8 +238,7 @@ if (score - 10 >= 0) { // Check if score will not go negative
       for (let y = 0; y < rows; y++) {
         const index = snake.findIndex(segment => segment.x === x && segment.y === y);
         if (index !== -1) {
-            shootWaveOfParticles(0, 0, 1000, 360, 4, 'rgba(0, 255, 0, 0.8)', 10, 300, 'circle'); // 5-sided polygo
-            snake.splice(index, 1);
+             snake.splice(index, 1);
             if (score - 10 >= 0) { // Check if score will not go negative
     score -= 10;       // Subtract 10 from score
 } else {
@@ -463,8 +462,13 @@ function updateGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     resizeCanvas();
     drawGrid();
-    shootWaveOfParticles(0, 0, 1000, 360, 4, 'rgba(0, 255, 0, 0.8)', 10, 300, 'circle'); 
-    checkAndClearSnakeRowsAndColumns()
+    let middley = (canvas.height/gridSize)/2
+    let middlex =  (canvas.width/gridSize)/2
+    if (health <= 0){
+    shootWaveOfParticles(middlex, middley, 1000, 360, 4, 'rgba(255,0, 0, 0.8)', 10, 1000, 'circle'); 
+        gameOver()
+    }
+        checkAndClearSnakeRowsAndColumns()
     negativeLifePenalty = false
     pellets = []
     if (isPaused === false) {
