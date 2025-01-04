@@ -569,6 +569,7 @@ function handleCollisions() {
                         triggerHitstun();
                         health--;
                         if (health <= 0) {
+                            shootWaveOfParticles(middlex, middley, 1000, 360, 4, 'rgba(255,0, 0, 0.8)', 10, 1000, 'circle'); 
                             gameOver();
                         }
                     }
