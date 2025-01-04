@@ -467,7 +467,7 @@ function updateGame() {
     if (health <= 0){
     shootWaveOfParticles(middlex, middley, 1000, 360, 4, 'rgba(255,0, 0, 0.8)', 10, 1000, 'circle'); 
     }
-    shootWaveOfParticles(middlex, middley, 1000, 360, 4, 'rgba(255,0, 0, 0.8)', 10, 1000, 'circle'); 
+
 
         checkAndClearSnakeRowsAndColumns()
     negativeLifePenalty = false
@@ -509,7 +509,7 @@ if (scoreAddLineClear === false){
 if (connectedPoints.length === 0){
         scoreAddLineClear = false
 }
-    if (health <= 0){
+    if (health <= 0 && particle.length === 0){
 gameOver()
     }
     columns = canvas.width / gridSize;
