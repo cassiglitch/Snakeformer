@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Recursive Web Crawler Deluxe: Black ICE Edition</title>
+  <title>Recursive Web Crawler — Now with Smart Stop</title>
   <style>
     body {
       background: #111;
@@ -55,11 +55,10 @@
   </style>
 </head>
 <body>
-  <h1>🕸 Recursive Web Crawler Deluxe: <em>Black ICE Edition</em></h1>
+  <h1>🕸 Recursive Web Crawler — Smart Stop Enabled</h1>
 
   <input type="text" id="startUrl" placeholder="Enter starting URL (https://example.com)" />
-  <input type="number" id="maxDepth" placeholder="Max Depth" value="2" min="1" />
-  <button onclick="startCrawling()">Unleash the Spider</button>
+  <button onclick="startCrawling()">Unleash</button>
 
   <div id="progressContainer">
     <div id="progressBar">0%</div>
@@ -77,64 +76,74 @@
     const successfulLinks = {};
     const failedLinks = [];
     let outputDiv, progressBar, statsBox;
+    let queue = [];
     let totalLinks = 0, processedLinks = 0, maxDepthDisplay = 0;
 
     async function startCrawling() {
       const startUrl = document.getElementById("startUrl").value;
-      const maxDepth = parseInt(document.getElementById("maxDepth").value);
 
       outputDiv = document.getElementById("output");
       progressBar = document.getElementById("progressBar");
       statsBox = document.getElementById("statsBox");
 
-      outputDiv.innerHTML = "<em>Starting crawl...</em><br>";
+      outputDiv.innerHTML = "<em>Initializing crawl...</em><br>";
       document.getElementById("depthSelector").innerHTML = `<option value="">-- Select Depth --</option>`;
 
       visited.clear();
       Object.keys(successfulLinks).forEach(key => delete successfulLinks[key]);
       failedLinks.length = 0;
+      queue = [];
       totalLinks = 0;
       processedLinks = 0;
       maxDepthDisplay = 0;
 
-      await crawl(startUrl, 0, maxDepth);
+      queue.push({ url: startUrl, depth: 0 });
+
+      await processQueue();
+
       updateProgressBar();
       updateStats();
-      outputDiv.innerHTML += "<br><strong>🕷 Crawl complete.</strong>";
+      outputDiv.innerHTML += "<br><strong>✅ Crawl complete — no new links left.</strong>";
     }
 
-    async function crawl(url, depth, maxDepth) {
-      if (visited.has(url) || depth > maxDepth) return;
-      visited.add(url);
-      totalLinks++;
+    async function processQueue() {
+      while (queue.length > 0) {
+        const { url, depth } = queue.shift();
+        if (visited.has(url)) continue;
 
-      logLink(depth, `🔗 Crawling (Depth ${depth}): <a href="${url}" target="_blank" style="color:#0ff">${url}</a>`);
+        visited.add(url);
+        totalLinks++;
 
-      let html;
-      try {
-        const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
-        html = await res.text();
-      } catch (e) {
-        failedLinks.push(url);
-        logLink(depth, `❌ Failed to fetch ${url}`, true);
+        logLink(depth, `🔗 Crawling (Depth ${depth}): <a href="${url}" target="_blank" style="color:#0ff">${url}</a>`);
+
+        let html;
+        try {
+          const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
+          html = await res.text();
+        } catch (e) {
+          failedLinks.push(url);
+          logLink(depth, `❌ Failed to fetch ${url}`, true);
+          processedLinks++;
+          updateProgressBar();
+          continue;
+        }
+
+        maxDepthDisplay = Math.max(maxDepthDisplay, depth);
+        if (!successfulLinks[depth]) successfulLinks[depth] = [];
+        successfulLinks[depth].push(url);
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const links = [...doc.querySelectorAll('a')].map(a => a.href).filter(isValidHttpUrl);
+
+        for (let link of links) {
+          if (!visited.has(link)) {
+            queue.push({ url: link, depth: depth + 1 });
+          }
+        }
+
         processedLinks++;
         updateProgressBar();
-        return;
-      }
-
-      maxDepthDisplay = Math.max(maxDepthDisplay, depth);
-      if (!successfulLinks[depth]) successfulLinks[depth] = [];
-      successfulLinks[depth].push(url);
-
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const links = [...doc.querySelectorAll('a')].map(a => a.href).filter(isValidHttpUrl);
-
-      processedLinks++;
-      updateProgressBar();
-
-      for (let link of links) {
-        await crawl(link, depth + 1, maxDepth);
       }
     }
 
@@ -155,7 +164,6 @@
       if (section) {
         section.innerHTML += `<div class="linkItem"><span class="depthTag">[Depth ${depth}]</span> ${html}</div>`;
       } else {
-        // Fallback for errors, dump directly into output
         document.getElementById("output").innerHTML += `<div class="linkItem"><span class="depthTag">[Depth ${depth}]</span> ${html}</div>`;
       }
     }
