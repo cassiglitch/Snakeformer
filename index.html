@@ -1,1 +1,147 @@
-<div class="iframely-embed"><div class="iframely-responsive" style="height: 140px; padding-bottom: 0;"><a href="https://www.xvideos.com/video.hvmdlpk8465/scared_crying_teen_gets_pounded_" data-iframely-url="//iframely.net/yigge7e"></a></div></div><script async src="//iframely.net/embed.js"></script>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Recursive Web Crawler Deluxe</title>
+  <style>
+    body {
+      background: #111;
+      color: #0f0;
+      font-family: monospace;
+      padding: 20px;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      background: #222;
+      color: #0f0;
+      border: 1px solid #0f0;
+      margin-bottom: 10px;
+    }
+    .linkBox {
+      background: #222;
+      padding: 10px;
+      border: 1px dashed #0f0;
+      margin-top: 20px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .linkItem {
+      margin-bottom: 10px;
+    }
+    #progressContainer {
+      width: 100%;
+      background: #333;
+      border: 1px solid #0f0;
+      margin-top: 10px;
+    }
+    #progressBar {
+      width: 0%;
+      height: 20px;
+      background: limegreen;
+      text-align: center;
+      color: black;
+      font-weight: bold;
+    }
+    .depthTag {
+      color: #0ff;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🕸 Recursive Web Crawler Deluxe</h1>
+  <input type="text" id="startUrl" placeholder="Enter starting URL (https://example.com)" />
+  <button onclick="startCrawling()">Unleash the Spider</button>
+
+  <div id="progressContainer">
+    <div id="progressBar">0%</div>
+  </div>
+
+  <div class="linkBox" id="output"></div>
+
+  <script>
+    const visited = new Set();
+    const frontier = [];
+    const maxDepthDisplay = { value: 0 };
+    let totalLinks = 0;
+    let processedLinks = 0;
+    let outputDiv, progressBar;
+
+    async function startCrawling() {
+      const startUrl = document.getElementById("startUrl").value;
+      outputDiv = document.getElementById("output");
+      progressBar = document.getElementById("progressBar");
+      outputDiv.innerHTML = "<em>Starting crawl...</em><br>";
+      visited.clear();
+      frontier.length = 0;
+      totalLinks = 0;
+      processedLinks = 0;
+      maxDepthDisplay.value = 0;
+
+      await crawl(startUrl, 0);
+      updateProgressBar();
+      outputDiv.innerHTML += "<br><strong>🕷 Crawl complete.</strong>";
+    }
+
+    async function crawl(url, depth) {
+      if (visited.has(url)) return;
+      visited.add(url);
+      frontier.push(url);
+      totalLinks++;
+
+      maxDepthDisplay.value = Math.max(maxDepthDisplay.value, depth);
+      appendLog(`🔗 Crawling (Depth ${depth}): <a href="${url}" target="_blank" style="color:#0ff">${url}</a>`, depth);
+
+      let html;
+      try {
+        const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
+        html = await res.text();
+      } catch (e) {
+        appendLog(`❌ Failed to fetch ${url}`, depth);
+        processedLinks++;
+        updateProgressBar();
+        return;
+      }
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const links = [...doc.querySelectorAll('a')].map(a => a.href).filter(Boolean);
+      const newLinks = [];
+
+      for (let link of links) {
+        if (!visited.has(link) && isValidHttpUrl(link)) {
+          newLinks.push(link);
+          appendLog(`➤ Found (Depth ${depth + 1}): <a href="${link}" target="_blank" style="color:#ff0">${link}</a>`, depth + 1);
+        }
+      }
+
+      processedLinks++;
+      updateProgressBar();
+
+      // Crawl each new link (sequentially)
+      for (let next of newLinks) {
+        await crawl(next, depth + 1);
+      }
+    }
+
+    function appendLog(html, depth) {
+      outputDiv.innerHTML += `<div class="linkItem"><span class="depthTag">[Depth ${depth}]</span> ${html}</div>`;
+    }
+
+    function updateProgressBar() {
+      let percentage = totalLinks > 0 ? Math.floor((processedLinks / totalLinks) * 100) : 0;
+      progressBar.style.width = `${percentage}%`;
+      progressBar.innerText = `${percentage}%`;
+    }
+
+    function isValidHttpUrl(str) {
+      try {
+        const url = new URL(str);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch (_) {
+        return false;
+      }
+    }
+  </script>
+</body>
+</html>
