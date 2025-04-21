@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Recursive Web Crawler Deluxe</title>
+  <title>Recursive Web Crawler Deluxe: Black ICE Edition</title>
   <style>
     body {
       background: #111;
@@ -9,7 +9,7 @@
       font-family: monospace;
       padding: 20px;
     }
-    input, button {
+    input, button, select {
       padding: 10px;
       font-size: 16px;
       background: #222;
@@ -46,92 +46,144 @@
       color: #0ff;
       font-weight: bold;
     }
+    #statsBox {
+      background: #1a1a1a;
+      border: 1px solid #0f0;
+      padding: 10px;
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
-  <h1>🕸 Recursive Web Crawler Deluxe</h1>
+  <h1>🕸 Recursive Web Crawler Deluxe: <em>Black ICE Edition</em></h1>
+
   <input type="text" id="startUrl" placeholder="Enter starting URL (https://example.com)" />
+  <input type="number" id="maxDepth" placeholder="Max Depth" value="2" min="1" />
   <button onclick="startCrawling()">Unleash the Spider</button>
 
   <div id="progressContainer">
     <div id="progressBar">0%</div>
   </div>
 
-  <div class="linkBox" id="output"></div>
+  <select id="depthSelector" onchange="showDepthLinks()">
+    <option value="">-- Select Depth --</option>
+  </select>
+
+  <div id="output" class="linkBox"></div>
+  <div id="statsBox"></div>
 
   <script>
     const visited = new Set();
-    const frontier = [];
-    const maxDepthDisplay = { value: 0 };
-    let totalLinks = 0;
-    let processedLinks = 0;
-    let outputDiv, progressBar;
+    const successfulLinks = {};
+    const failedLinks = [];
+    let outputDiv, progressBar, statsBox;
+    let totalLinks = 0, processedLinks = 0, maxDepthDisplay = 0;
 
     async function startCrawling() {
       const startUrl = document.getElementById("startUrl").value;
+      const maxDepth = parseInt(document.getElementById("maxDepth").value);
+
       outputDiv = document.getElementById("output");
       progressBar = document.getElementById("progressBar");
+      statsBox = document.getElementById("statsBox");
+
       outputDiv.innerHTML = "<em>Starting crawl...</em><br>";
+      document.getElementById("depthSelector").innerHTML = `<option value="">-- Select Depth --</option>`;
+
       visited.clear();
-      frontier.length = 0;
+      Object.keys(successfulLinks).forEach(key => delete successfulLinks[key]);
+      failedLinks.length = 0;
       totalLinks = 0;
       processedLinks = 0;
-      maxDepthDisplay.value = 0;
+      maxDepthDisplay = 0;
 
-      await crawl(startUrl, 0);
+      await crawl(startUrl, 0, maxDepth);
       updateProgressBar();
+      updateStats();
       outputDiv.innerHTML += "<br><strong>🕷 Crawl complete.</strong>";
     }
 
-    async function crawl(url, depth) {
-      if (visited.has(url)) return;
+    async function crawl(url, depth, maxDepth) {
+      if (visited.has(url) || depth > maxDepth) return;
       visited.add(url);
-      frontier.push(url);
       totalLinks++;
 
-      maxDepthDisplay.value = Math.max(maxDepthDisplay.value, depth);
-      appendLog(`🔗 Crawling (Depth ${depth}): <a href="${url}" target="_blank" style="color:#0ff">${url}</a>`, depth);
+      logLink(depth, `🔗 Crawling (Depth ${depth}): <a href="${url}" target="_blank" style="color:#0ff">${url}</a>`);
 
       let html;
       try {
         const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
         html = await res.text();
       } catch (e) {
-        appendLog(`❌ Failed to fetch ${url}`, depth);
+        failedLinks.push(url);
+        logLink(depth, `❌ Failed to fetch ${url}`, true);
         processedLinks++;
         updateProgressBar();
         return;
       }
 
+      maxDepthDisplay = Math.max(maxDepthDisplay, depth);
+      if (!successfulLinks[depth]) successfulLinks[depth] = [];
+      successfulLinks[depth].push(url);
+
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-      const links = [...doc.querySelectorAll('a')].map(a => a.href).filter(Boolean);
-      const newLinks = [];
-
-      for (let link of links) {
-        if (!visited.has(link) && isValidHttpUrl(link)) {
-          newLinks.push(link);
-          appendLog(`➤ Found (Depth ${depth + 1}): <a href="${link}" target="_blank" style="color:#ff0">${link}</a>`, depth + 1);
-        }
-      }
+      const links = [...doc.querySelectorAll('a')].map(a => a.href).filter(isValidHttpUrl);
 
       processedLinks++;
       updateProgressBar();
 
-      // Crawl each new link (sequentially)
-      for (let next of newLinks) {
-        await crawl(next, depth + 1);
+      for (let link of links) {
+        await crawl(link, depth + 1, maxDepth);
       }
     }
 
-    function appendLog(html, depth) {
-      outputDiv.innerHTML += `<div class="linkItem"><span class="depthTag">[Depth ${depth}]</span> ${html}</div>`;
+    function logLink(depth, html, isError = false) {
+      const id = `depth-${depth}`;
+      let section = document.getElementById(id);
+      if (!section && !isError) {
+        section = document.createElement("div");
+        section.id = id;
+        section.style.display = "none";
+        document.getElementById("output").appendChild(section);
+
+        const option = document.createElement("option");
+        option.value = depth;
+        option.innerText = `Depth ${depth}`;
+        document.getElementById("depthSelector").appendChild(option);
+      }
+      if (section) {
+        section.innerHTML += `<div class="linkItem"><span class="depthTag">[Depth ${depth}]</span> ${html}</div>`;
+      } else {
+        // Fallback for errors, dump directly into output
+        document.getElementById("output").innerHTML += `<div class="linkItem"><span class="depthTag">[Depth ${depth}]</span> ${html}</div>`;
+      }
     }
 
     function updateProgressBar() {
-      let percentage = totalLinks > 0 ? Math.floor((processedLinks / totalLinks) * 100) : 0;
-      progressBar.style.width = `${percentage}%`;
-      progressBar.innerText = `${percentage}%`;
+      const percent = totalLinks > 0 ? Math.floor((processedLinks / totalLinks) * 100) : 0;
+      progressBar.style.width = percent + "%";
+      progressBar.innerText = percent + "%";
+    }
+
+    function showDepthLinks() {
+      const selected = document.getElementById("depthSelector").value;
+      const output = document.getElementById("output");
+      [...output.children].forEach(div => div.style.display = "none");
+      if (selected !== "") {
+        const section = document.getElementById(`depth-${selected}`);
+        if (section) section.style.display = "block";
+      }
+    }
+
+    function updateStats() {
+      statsBox.innerHTML = `
+        <strong>📊 Stats:</strong><br>
+        Total Links Processed: ${processedLinks}<br>
+        Successful Links: ${Object.values(successfulLinks).reduce((a, b) => a + b.length, 0)}<br>
+        Failed Links: ${failedLinks.length}<br>
+        Max Depth Reached: ${maxDepthDisplay}
+      `;
     }
 
     function isValidHttpUrl(str) {
